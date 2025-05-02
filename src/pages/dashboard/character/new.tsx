@@ -28,14 +28,15 @@ export default function NewCharacter() {
         return
       }
 
-      const {
-        data: publicUrlData
-      } = supabase.storage.from('character-images').getPublicUrl(filePath)
+      const { data: publicUrlData } = supabase
+        .storage
+        .from('character-images')
+        .getPublicUrl(filePath)
 
       imageUrl = publicUrlData.publicUrl
     }
 
-    const { data: insertData, error: insertError } = await supabase
+    const { error: insertError, data: inserted } = await supabase
       .from('characters')
       .insert({
         name,
@@ -46,14 +47,14 @@ export default function NewCharacter() {
       .select()
       .single()
 
-    if (insertError || !insertData) {
+    if (insertError || !inserted) {
       alert('캐릭터 생성 실패: ' + insertError?.message)
       setLoading(false)
       return
     }
 
     try {
-      await loadCharacterToRAG(insertData.id, world)
+      await loadCharacterToRAG(inserted.id, world)
     } catch (err: unknown) {
       if (err instanceof Error) {
         alert('RAG 서버 등록 실패: ' + err.message)

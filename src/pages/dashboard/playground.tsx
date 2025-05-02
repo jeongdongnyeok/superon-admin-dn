@@ -1,3 +1,4 @@
+// src/pages/dashboard/playground.tsx
 import { useEffect, useState, ChangeEvent } from 'react'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabaseClient'
@@ -36,7 +37,7 @@ export default function Playground() {
       return
     }
 
-    // TODO: 이후 실제 OpenAI 응답 연결 예정
+    // TODO: 실제 LangChain/OpenAI 응답 연결 예정
     setResponse(`"${selected?.name}" 캐릭터가 이렇게 말했을 거예요: "${prompt}" 🤖`)
   }
 

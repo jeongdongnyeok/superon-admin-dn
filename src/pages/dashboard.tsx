@@ -5,6 +5,14 @@ import Image from 'next/image'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
+type Character = {
+  id: string
+  name: string
+  description: string
+  image_url: string | null
+  created_at?: string
+}
+
 export default function Dashboard() {
   const router = useRouter()
   const { tab } = router.query
@@ -15,7 +23,7 @@ export default function Dashboard() {
       if (!session) router.push('/auth')
     }
     check()
-  }, [router])
+  }, [router.pathname]) // ✅ 의존성 안전하게 수정
 
   return (
     <div className="p-8">
@@ -33,14 +41,6 @@ export default function Dashboard() {
       </main>
     </div>
   )
-}
-
-type Character = {
-  id: string
-  name: string
-  description: string
-  image_url: string | null
-  created_at?: string
 }
 
 function CharacterTab() {
@@ -70,10 +70,7 @@ function CharacterTab() {
   const handleDelete = async (id: string) => {
     if (!confirm('정말로 이 캐릭터를 삭제하시겠습니까?')) return
     setDeletingId(id)
-    const { error } = await supabase
-      .from('characters')
-      .delete()
-      .eq('id', id)
+    const { error } = await supabase.from('characters').delete().eq('id', id)
     if (error) {
       alert('삭제 실패: ' + error.message)
     } else {
@@ -98,6 +95,7 @@ function CharacterTab() {
                 width={400}
                 height={192}
                 className="w-full h-48 object-cover mb-2 rounded"
+                loading="lazy"
               />
             )}
             <h3 className="text-xl font-semibold">{char.name}</h3>

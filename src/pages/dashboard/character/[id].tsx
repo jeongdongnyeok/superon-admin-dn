@@ -3,7 +3,6 @@ import { useRouter } from 'next/router'
 import Image from "next/image"
 import { supabase } from '@/lib/supabaseClient'
 
-
 export default function CharacterEditPage() {
   const router = useRouter()
   const { id } = router.query
@@ -15,14 +14,13 @@ export default function CharacterEditPage() {
   useEffect(() => {
     if (!id) return
     const fetchCharacter = async () => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { data, error } = await supabase
         .from('characters')
         .select('*')
         .eq('id', id)
         .single()
 
-      if (error) {
+      if (error || !data) {
         alert('캐릭터 불러오기 실패')
       } else {
         setName(data.name)
