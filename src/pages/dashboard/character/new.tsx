@@ -19,7 +19,7 @@ const handleSubmit = async () => {
 
   if (file) {
     const filePath = `characters/${Date.now()}-${file.name}`
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('character-images')
       .upload(filePath, file)
 
@@ -82,8 +82,10 @@ const handleSubmit = async () => {
                 onChange={(e) => setWorld(e.target.value)}
                 className="border p-2 w-full h-32" />
 
-      <input type="file" accept="image/*"
-             onChange={(e) => setFile(e.target.files?.[0] || null)} />
+<input
+  type="file"
+  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFile(e.target.files?.[0] || null)}
+/>
 
       <button onClick={handleSubmit}
               className="border px-4 py-2 rounded"

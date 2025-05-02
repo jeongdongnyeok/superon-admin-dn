@@ -14,6 +14,7 @@ export default function CharacterEditPage() {
   useEffect(() => {
     if (!id) return
     const fetchCharacter = async () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { data, error } = await supabase
         .from('characters')
         .select('*')
