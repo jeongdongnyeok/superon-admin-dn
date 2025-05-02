@@ -1,10 +1,12 @@
 // src/lib/withAuth.tsx
-import { useEffect } from "react"
+import React, { JSX, useEffect } from "react"
 import { useRouter } from "next/router"
 import { supabase } from "@/lib/supabaseClient"
 
-export default function withAuth(Component: React.FC) {
-  return function AuthenticatedComponent(props: any) {
+export default function withAuth<P extends JSX.IntrinsicAttributes = {}>(
+  Component: React.ComponentType<P>
+): React.FC<P> {
+  return function AuthenticatedComponent(props: P) {
     const router = useRouter()
 
     useEffect(() => {
@@ -13,13 +15,11 @@ export default function withAuth(Component: React.FC) {
           data: { session },
         } = await supabase.auth.getSession()
 
-        if (!session) {
-          router.push("/login")
-        }
+        if (!session) router.push("/login")
       }
 
       checkAuth()
-    }, [])
+    }, [router])
 
     return <Component {...props} />
   }
