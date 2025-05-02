@@ -20,10 +20,13 @@ export default function Dashboard() {
   useEffect(() => {
     const check = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) router.push('/auth')
+      if (!session) {
+        router.push('/auth')
+      }
     }
+
     check()
-  }, [router.pathname]) // ✅ 의존성 안전하게 수정
+  }, [router]) // ✅ 'router' 자체가 객체이므로 의존성 OK
 
   return (
     <div className="p-8">
@@ -48,22 +51,22 @@ function CharacterTab() {
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  const fetchCharacters = async () => {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('characters')
-      .select('*')
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      alert('캐릭터 불러오기 실패: ' + error.message)
-    } else if (data) {
-      setCharacters(data as Character[])
-    }
-    setLoading(false)
-  }
-
   useEffect(() => {
+    const fetchCharacters = async () => {
+      setLoading(true)
+      const { data, error } = await supabase
+        .from('characters')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        alert('캐릭터 불러오기 실패: ' + error.message)
+      } else if (data) {
+        setCharacters(data as Character[])
+      }
+      setLoading(false)
+    }
+
     fetchCharacters()
   }, [])
 

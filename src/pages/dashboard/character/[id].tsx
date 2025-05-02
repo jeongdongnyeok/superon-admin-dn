@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
-import Image from "next/image"
+import Image from 'next/image'
 import { supabase } from '@/lib/supabaseClient'
 
 export default function CharacterEditPage() {
@@ -13,19 +13,21 @@ export default function CharacterEditPage() {
 
   useEffect(() => {
     if (!id) return
+
     const fetchCharacter = async () => {
-      const { data, error } = await supabase
+      const result = await supabase
         .from('characters')
         .select('*')
         .eq('id', id)
         .single()
 
-      if (error || !data) {
+      if (result.error || !result.data) {
         alert('캐릭터 불러오기 실패')
       } else {
-        setName(data.name)
-        setDescription(data.description)
-        setImageUrl(data.image_url)
+        const character = result.data
+        setName(character.name)
+        setDescription(character.description)
+        setImageUrl(character.image_url)
       }
     }
 
@@ -37,12 +39,12 @@ export default function CharacterEditPage() {
 
     if (file) {
       const filePath = `characters/${Date.now()}-${file.name}`
-      const { data, error } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('character-images')
         .upload(filePath, file)
 
-      if (error) {
-        alert('이미지 업로드 실패: ' + error.message)
+      if (uploadError) {
+        alert('이미지 업로드 실패: ' + uploadError.message)
         return
       }
 
@@ -53,7 +55,7 @@ export default function CharacterEditPage() {
       newImageUrl = publicUrl
     }
 
-    const { error } = await supabase
+    const { error: updateError } = await supabase
       .from('characters')
       .update({
         name,
@@ -62,8 +64,8 @@ export default function CharacterEditPage() {
       })
       .eq('id', id)
 
-    if (error) {
-      alert('업데이트 실패: ' + error.message)
+    if (updateError) {
+      alert('업데이트 실패: ' + updateError.message)
     } else {
       alert('수정 완료!')
       router.push('/dashboard?tab=character')
@@ -73,11 +75,35 @@ export default function CharacterEditPage() {
   return (
     <div className="p-8 space-y-4">
       <h1 className="text-xl font-bold">캐릭터 수정</h1>
-      <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="border p-2 w-full" />
-      <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="border p-2 w-full h-24" />
-      {imageUrl && <Image src={imageUrl} alt="캐릭터 이미지" width={160} height={160} className="mb-2 rounded" />}
-      <input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-      <button onClick={handleUpdate} className="border px-4 py-2 rounded">수정하기</button>
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        className="border p-2 w-full"
+        placeholder="캐릭터 이름"
+      />
+      <textarea
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        className="border p-2 w-full h-24"
+        placeholder="캐릭터 설명"
+      />
+      {imageUrl && (
+        <Image
+          src={imageUrl}
+          alt="업로드된 캐릭터 이미지"
+          width={160}
+          height={160}
+          className="mb-2 rounded object-cover"
+        />
+      )}
+      <input
+        type="file"
+        onChange={(e) => setFile(e.target.files?.[0] || null)}
+      />
+      <button onClick={handleUpdate} className="border px-4 py-2 rounded">
+        수정하기
+      </button>
     </div>
   )
 }
