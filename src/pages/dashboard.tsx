@@ -15,7 +15,7 @@ export default function Dashboard() {
       if (!session) router.push('/auth')
     }
     check()
-  }, [router]) // ✅ 의존성 추가
+  }, [router])
 
   return (
     <div className="p-8">

@@ -1,8 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, ChangeEvent } from 'react'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabaseClient'
 
+type Character = {
+  id: string
+  name: string
+  description: string
+  image_url: string | null
+}
+
 export default function Playground() {
-  const [characters, setCharacters] = useState<any[]>([])
+  const [characters, setCharacters] = useState<Character[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [prompt, setPrompt] = useState('')
   const [response, setResponse] = useState<string | null>(null)
@@ -14,7 +22,7 @@ export default function Playground() {
         alert('캐릭터 불러오기 실패')
         return
       }
-      setCharacters(data || [])
+      setCharacters((data as Character[]) || [])
     }
 
     fetchCharacters()
@@ -37,7 +45,7 @@ export default function Playground() {
       <h1 className="text-2xl font-bold">🧠 캐릭터 Playground</h1>
 
       <select
-        onChange={(e) => setSelectedId(e.target.value)}
+        onChange={(e: ChangeEvent<HTMLSelectElement>) => setSelectedId(e.target.value)}
         className="border p-2 w-full"
       >
         <option value="">캐릭터 선택</option>
@@ -48,7 +56,15 @@ export default function Playground() {
 
       {selected && (
         <div className="p-4 border rounded space-y-2">
-          {selected.image_url && <img src={selected.image_url} className="h-40 rounded" />}
+          {selected.image_url && (
+            <Image
+              src={selected.image_url}
+              alt={selected.name}
+              width={160}
+              height={160}
+              className="rounded h-40 object-cover"
+            />
+          )}
           <p className="font-bold">{selected.name}</p>
           <p className="text-sm text-gray-500">{selected.description}</p>
         </div>
@@ -58,7 +74,7 @@ export default function Playground() {
         className="border p-2 w-full h-24"
         placeholder="프롬프트 입력..."
         value={prompt}
-        onChange={(e) => setPrompt(e.target.value)}
+        onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setPrompt(e.target.value)}
       />
 
       <button onClick={handleSendPrompt} className="border px-4 py-2 rounded">
