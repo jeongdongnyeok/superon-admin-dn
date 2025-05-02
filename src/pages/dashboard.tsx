@@ -1,6 +1,7 @@
 // src/pages/dashboard.tsx
 import { useRouter } from 'next/router'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -14,7 +15,7 @@ export default function Dashboard() {
       if (!session) router.push('/auth')
     }
     check()
-  }, [])
+  }, [router]) // ✅ 의존성 추가
 
   return (
     <div className="p-8">
@@ -34,8 +35,16 @@ export default function Dashboard() {
   )
 }
 
+type Character = {
+  id: string
+  name: string
+  description: string
+  image_url: string | null
+  created_at?: string
+}
+
 function CharacterTab() {
-  const [characters, setCharacters] = useState<any[]>([])
+  const [characters, setCharacters] = useState<Character[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
@@ -48,8 +57,8 @@ function CharacterTab() {
 
     if (error) {
       alert('캐릭터 불러오기 실패: ' + error.message)
-    } else {
-      setCharacters(data)
+    } else if (data) {
+      setCharacters(data as Character[])
     }
     setLoading(false)
   }
@@ -83,13 +92,22 @@ function CharacterTab() {
         {characters.map((char) => (
           <div key={char.id} className="border rounded p-4 shadow-sm relative">
             {char.image_url && (
-              <img src={char.image_url} alt={char.name} className="w-full h-48 object-cover mb-2 rounded" />
+              <Image
+                src={char.image_url}
+                alt={char.name}
+                width={400}
+                height={192}
+                className="w-full h-48 object-cover mb-2 rounded"
+              />
             )}
             <h3 className="text-xl font-semibold">{char.name}</h3>
             <p className="text-sm text-gray-600">{char.description}</p>
-            <Link href={`/dashboard/character/${char.id}`} className="text-blue-500 underline">
-  ✏️ 수정
-</Link>
+            <Link
+              href={`/dashboard/character/${char.id}`}
+              className="text-blue-500 underline"
+            >
+              ✏️ 수정
+            </Link>
             <button
               className="absolute top-2 right-2 px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
               onClick={() => handleDelete(char.id)}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
+import Image from "next/image"
 import { supabase } from '@/lib/supabaseClient'
 
 
@@ -76,7 +77,7 @@ export default function CharacterEditPage() {
       <h1 className="text-xl font-bold">캐릭터 수정</h1>
       <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="border p-2 w-full" />
       <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="border p-2 w-full h-24" />
-      {imageUrl && <img src={imageUrl} className="h-40 mb-2 rounded" />}
+      {imageUrl && <Image src={imageUrl} alt="캐릭터 이미지" width={160} height={160} className="mb-2 rounded" />}
       <input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
       <button onClick={handleUpdate} className="border px-4 py-2 rounded">수정하기</button>
     </div>
