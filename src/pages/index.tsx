@@ -1,6 +1,13 @@
 // src/pages/index.tsx
-import withAuth from '@/lib/withAuth'
+import { useEffect } from 'react'
+import { useRouter } from 'next/router'
 
-export default withAuth(function Dashboard() {
-  return <div>Welcome to the dashboard!</div>
-})
+export default function Home() {
+  const router = useRouter()
+
+  useEffect(() => {
+    router.replace('/login')
+  }, [router])
+
+  return null
+}
