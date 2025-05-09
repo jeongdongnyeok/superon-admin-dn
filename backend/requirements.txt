@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+langchain
+langchain-community
+langchain-openai
+huggingface-hub
+transformers
+torch
+faiss-cpu
+python-dotenv

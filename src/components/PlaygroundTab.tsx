@@ -61,10 +61,13 @@ export default function Playground() {
         }
         console.log('Character loaded:', resData);
         alert(`'${char.name}' 캐릭터가 로드되었습니다! 대화를 시작하세요.`);
-      } catch (error: any) {
-        console.error('Error loading character:', error);
-        alert('캐릭터 로드 실패: ' + error.message);
-        setSelectedCharacter(null); // 로드 실패 시 선택 해제
+      } catch (error: unknown) {
+        console.error('Error loading character:', error)
+        if (error instanceof Error) {
+          alert('캐릭터 로드 실패: ' + error.message)
+        } else {
+          alert('알 수 없는 오류가 발생했습니다.')
+        }
       }
       setIsLoadingCharacter(false);
     } else {
@@ -98,10 +101,13 @@ export default function Playground() {
       }
       // setResponse(data.response); // 채팅 기록으로 대체
       setChatHistory(prev => [...prev, { user: currentPrompt, bot: data.response }]);
-    } catch (error: any) {
-      console.error('Error asking character:', error);
-      alert('질문 실패: ' + error.message);
-      // setResponse(null); // 실패 시 이전 응답도 초기화 (채팅 기록 사용으로 불필요)
+    } catch (error: unknown) {
+      console.error('Error asking character:', error)
+      if (error instanceof Error) {
+        alert('질문 실패: ' + error.message)
+      } else {
+        alert('질문 처리 중 알 수 없는 오류가 발생했습니다.')
+      }
     }
     setIsAsking(false);
   }
