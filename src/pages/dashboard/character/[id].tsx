@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabaseClient'
+import axios from 'axios'
 
 export default function CharacterEditPage() {
   const router = useRouter()
@@ -10,6 +11,11 @@ export default function CharacterEditPage() {
   const [description, setDescription] = useState('')
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
+
+  // ✅ 성격 관련 필드
+  const [style, setStyle] = useState('')
+  const [perspective, setPerspective] = useState('')
+  const [tone, setTone] = useState('')
 
   useEffect(() => {
     if (!id) return
@@ -28,6 +34,9 @@ export default function CharacterEditPage() {
         setName(character.name)
         setDescription(character.description)
         setImageUrl(character.image_url)
+        setStyle(character.style || '')
+        setPerspective(character.perspective || '')
+        setTone(character.tone || '')
       }
     }
 
@@ -48,9 +57,9 @@ export default function CharacterEditPage() {
         return
       }
 
-      const {
-        data: { publicUrl }
-      } = supabase.storage.from('character-images').getPublicUrl(filePath)
+      const { data: { publicUrl } } = supabase.storage
+        .from('character-images')
+        .getPublicUrl(filePath)
 
       newImageUrl = publicUrl
     }
@@ -60,7 +69,10 @@ export default function CharacterEditPage() {
       .update({
         name,
         description,
-        image_url: newImageUrl
+        image_url: newImageUrl,
+        style,
+        perspective,
+        tone,
       })
       .eq('id', id)
 
@@ -75,6 +87,7 @@ export default function CharacterEditPage() {
   return (
     <div className="p-8 space-y-4">
       <h1 className="text-xl font-bold">캐릭터 수정</h1>
+
       <input
         type="text"
         value={name}
@@ -88,6 +101,30 @@ export default function CharacterEditPage() {
         className="border p-2 w-full h-24"
         placeholder="캐릭터 설명"
       />
+
+      {/* ✅ 성격 관련 입력 */}
+      <input
+        type="text"
+        value={style}
+        onChange={(e) => setStyle(e.target.value)}
+        className="border p-2 w-full"
+        placeholder="스타일 (예: 시크하고 논리적인)"
+      />
+      <input
+        type="text"
+        value={perspective}
+        onChange={(e) => setPerspective(e.target.value)}
+        className="border p-2 w-full"
+        placeholder="관점 (예: 미래에 대한 냉철한 시각)"
+      />
+      <input
+        type="text"
+        value={tone}
+        onChange={(e) => setTone(e.target.value)}
+        className="border p-2 w-full"
+        placeholder="말투 (예: 건조하고 직설적)"
+      />
+
       {imageUrl && (
         <Image
           src={imageUrl}

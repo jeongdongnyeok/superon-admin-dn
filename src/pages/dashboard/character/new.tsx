@@ -1,4 +1,3 @@
-// src/pages/dashboard/character/new.tsx
 import { useState } from 'react'
 import { useRouter } from 'next/router'
 import { supabase } from '@/lib/supabaseClient'
@@ -7,10 +6,16 @@ import { loadCharacterToRAG } from '@/lib/apiClient'
 export default function NewCharacter() {
   const router = useRouter()
   const [name, setName] = useState('')
+  const [characterId, setCharacterId] = useState('')
   const [description, setDescription] = useState('')
+  const [world, setWorld] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
-  const [world, setWorld] = useState('')
+
+  // 🔽 새로 추가되는 프로필 항목들
+  const [style, setStyle] = useState('')
+  const [perspective, setPerspective] = useState('')
+  const [tone, setTone] = useState('')
 
   const handleSubmit = async () => {
     setLoading(true)
@@ -40,9 +45,14 @@ export default function NewCharacter() {
       .from('characters')
       .insert({
         name,
+        character_id: characterId,
         description,
         image_url: imageUrl,
-        world
+        world,
+        style,
+        perspective,
+        tone,
+        status: '대기'
       })
       .select()
       .single()
@@ -54,7 +64,12 @@ export default function NewCharacter() {
     }
 
     try {
-      await loadCharacterToRAG(inserted.id, world)
+      await loadCharacterToRAG(inserted.character_id, world, {
+        name,
+        style,
+        perspective,
+        tone
+      })
     } catch (err: unknown) {
       if (err instanceof Error) {
         alert('RAG 서버 등록 실패: ' + err.message)
@@ -80,6 +95,14 @@ export default function NewCharacter() {
         className="border p-2 w-full"
       />
 
+      <input
+        type="text"
+        placeholder="영문 character_id (API 식별자)"
+        value={characterId}
+        onChange={(e) => setCharacterId(e.target.value)}
+        className="border p-2 w-full"
+      />
+
       <textarea
         placeholder="설명"
         value={description}
@@ -92,6 +115,29 @@ export default function NewCharacter() {
         value={world}
         onChange={(e) => setWorld(e.target.value)}
         className="border p-2 w-full h-32"
+      />
+
+      {/* 🔽 프로필 세부 항목 입력 */}
+      <input
+        type="text"
+        placeholder="스타일 (ex. 차가운, 활기찬)"
+        value={style}
+        onChange={(e) => setStyle(e.target.value)}
+        className="border p-2 w-full"
+      />
+      <input
+        type="text"
+        placeholder="관점 (ex. 미래에 대한 시각)"
+        value={perspective}
+        onChange={(e) => setPerspective(e.target.value)}
+        className="border p-2 w-full"
+      />
+      <input
+        type="text"
+        placeholder="말투 (ex. 건조하고 직설적)"
+        value={tone}
+        onChange={(e) => setTone(e.target.value)}
+        className="border p-2 w-full"
       />
 
       <input

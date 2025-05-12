@@ -3,15 +3,19 @@ import { useEffect, useState, ChangeEvent, useRef } from 'react'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabaseClient'
 
+// 캐릭터 타입 정의
 type Character = {
   id: string
   name: string
   description: string
   image_url: string | null
+  created_at?: string
+  style: string
+  perspective: string
+  tone: string
   world: string
 }
 
-// 백엔드 API 기본 URL
 const FASTAPI_BASE_URL = process.env.NEXT_PUBLIC_FASTAPI_BASE_URL || 'http://localhost:8000';
 
 export default function Playground() {
@@ -22,10 +26,9 @@ export default function Playground() {
   const [isAsking, setIsAsking] = useState(false)
   const [chatHistory, setChatHistory] = useState<{ type: 'user' | 'bot' | 'loading' | 'info'; content: string }[]>([]);
   const [isSessionActive, setIsSessionActive] = useState(false);
-  
+  const [sessionId, setSessionId] = useState<string | null>(null); // 세션 ID 상태 추가
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
-  // 채팅 기록 변경 시 맨 아래로 스크롤
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
@@ -36,7 +39,7 @@ export default function Playground() {
     const fetchCharacters = async () => {
       const { data, error } = await supabase
         .from('characters')
-        .select('id, name, description, image_url, world')
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -52,10 +55,10 @@ export default function Playground() {
   const handleCharacterChange = (event: ChangeEvent<HTMLSelectElement>) => {
     const characterId = event.target.value;
     if (!characterId) {
-        setSelectedCharacter(null);
-        setIsSessionActive(false);
-        setChatHistory([]);
-        return;
+      setSelectedCharacter(null);
+      setIsSessionActive(false);
+      setChatHistory([]);
+      return;
     }
     const char = characters.find((c) => c.id === characterId);
     if (char) {
@@ -67,75 +70,126 @@ export default function Playground() {
 
   const handleStartSession = async () => {
     if (!selectedCharacter) return;
-
     setIsLoadingCharacter(true);
     setChatHistory([{ type: 'loading', content: `'${selectedCharacter.name}'님을 불러오는 중...` }]);
     try {
-      console.log(`Loading character: ${selectedCharacter.name} (ID: ${selectedCharacter.id}) with world: ${selectedCharacter.world.substring(0,50)}...`);
+      // 1. 세션 생성 (FastAPI)
+      const sessionRes = await fetch(`${FASTAPI_BASE_URL}/start_session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ character_id: selectedCharacter.id }),
+      });
+      const sessionData = await sessionRes.json();
+      if (!sessionRes.ok || !sessionData.session_id) {
+        throw new Error(sessionData.detail || sessionData.message || '세션 생성 실패');
+      }
+      setSessionId(sessionData.session_id);
+      // 2. 캐릭터 로딩 (기존과 동일)
+      const requestBody = {
+        id: selectedCharacter.id,
+        world: selectedCharacter.world,
+        profile: {
+          name: selectedCharacter.name,
+          style: selectedCharacter.style ?? '',
+          perspective: selectedCharacter.perspective ?? '',
+          tone: selectedCharacter.tone ?? '',
+        },
+      };
       const res = await fetch(`${FASTAPI_BASE_URL}/load_character`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: selectedCharacter.id, world: selectedCharacter.world }),
+        body: JSON.stringify(requestBody),
       });
-      
       const resData = await res.json();
       if (!res.ok) {
         throw new Error(resData.message || '캐릭터 로딩에 실패했습니다.');
       }
-      console.log('Character loaded:', resData);
       setChatHistory([{ type: 'bot', content: `'${selectedCharacter.name}'님과의 대화가 시작되었습니다. 무엇이 궁금하세요?` }]);
       setIsSessionActive(true);
     } catch (error: unknown) {
-      console.error('Error loading character:', error)
+      console.error('Error starting session or loading character:', error);
       const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
-      setChatHistory([{ type: 'bot', content: `캐릭터 로드 실패: ${errorMessage}` }]);
+      setChatHistory([{ type: 'bot', content: `캐릭터 세션 시작 실패: ${errorMessage}` }]);
       setIsSessionActive(false);
+      setSessionId(null);
     }
     setIsLoadingCharacter(false);
   };
 
-  const handleEndSession = () => {
-    if (selectedCharacter) {
-      setChatHistory(prev => [...prev, { type: 'info', content: `'${selectedCharacter.name}'님과의 대화가 종료되었습니다.` }]);
+  const handleEndSession = async () => {
+    if (!sessionId) return;
+    try {
+      await fetch(`${FASTAPI_BASE_URL}/end_session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId }),
+      });
+      if (selectedCharacter) {
+        setChatHistory(prev => [...prev, { type: 'info', content: `'${selectedCharacter.name}'님과의 대화가 종료되었습니다.` }]);
+      }
+      setSelectedCharacter(null);
+      setIsSessionActive(false);
+      setSessionId(null);
+      setPrompt('');
+    } catch (e) {
+      setChatHistory(prev => [...prev, { type: 'info', content: '세션 종료 중 오류가 발생했습니다.' }]);
     }
-    setSelectedCharacter(null); // 캐릭터 선택 드롭다운을 초기화하기 위해
-    setIsSessionActive(false);
-    setPrompt('');
-    // chatHistory는 유지하거나, 필요시 setChatHistory([]); 로 초기화
   };
 
   const handleSendPrompt = async () => {
     if (!selectedCharacter || !prompt.trim() || isAsking || !isSessionActive) {
-      if(!selectedCharacter) setChatHistory(prev => [...prev, {type: 'info', content: '먼저 캐릭터를 선택해주세요.'}]);
-      else if (!isSessionActive) setChatHistory(prev => [...prev, {type: 'info', content: '대화 시작 버튼을 눌러주세요.'}]);
-      else if(!prompt.trim()) setChatHistory(prev => [...prev, {type: 'info', content: '메시지를 입력해주세요.'}]);
-      return
+      if (!selectedCharacter) setChatHistory(prev => [...prev, { type: 'info', content: '먼저 캐릭터를 선택해주세요.' }]);
+      else if (!isSessionActive) setChatHistory(prev => [...prev, { type: 'info', content: '대화 시작 버튼을 눌러주세요.' }]);
+      else if (!prompt.trim()) setChatHistory(prev => [...prev, { type: 'info', content: '메시지를 입력해주세요.' }]);
+      return;
+    }
+
+    if (!sessionId) {
+      setChatHistory(prev => [...prev, { type: 'info', content: '세션이 존재하지 않습니다. 대화를 시작해주세요.' }]);
+      return;
     }
 
     const currentPrompt = prompt;
     setChatHistory(prev => [...prev, { type: 'user', content: currentPrompt }]);
-    setPrompt(''); 
+    setPrompt('');
     setIsAsking(true);
     setChatHistory(prev => [...prev, { type: 'loading', content: '답변 생성 중...' }]);
 
     try {
-      console.log(`Asking character (ID: ${selectedCharacter.id}): ${currentPrompt}`);
+      if (!sessionId) {
+        setChatHistory(prev => [...prev, { type: 'info', content: '세션이 존재하지 않습니다. 대화를 시작해주세요.' }]);
+        setIsAsking(false);
+        return;
+      }
       const res = await fetch(`${FASTAPI_BASE_URL}/ask_character`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: selectedCharacter.id, question: currentPrompt }),
+        body: JSON.stringify({
+          id: selectedCharacter.id,
+          session_id: sessionId,
+          viewer_id: 'playground-user',
+          history: [
+            ...chatHistory
+              .filter((msg) => msg.type === 'user' || msg.type === 'bot')
+              .map((msg) => ({
+                role: msg.type === 'user' ? 'user' : 'ai',
+                content: msg.content,
+              })),
+            { role: 'user', content: currentPrompt },
+          ]
+        }),
       });
-      
+
       const data = await res.json();
       setChatHistory(prev => prev.filter(msg => msg.type !== 'loading'));
 
       if (!res.ok) {
-        // FastAPI HTTPException의 경우 data.detail에 메시지가 담겨옴
-        throw new Error(data.detail || data.message || '질문에 대한 답변을 가져오는데 실패했습니다.');
+        const errorMessage = data?.detail || data?.message || '질문에 대한 답변을 가져오는데 실패했습니다.';
+        throw new Error(errorMessage);
       }
       setChatHistory(prev => [...prev, { type: 'bot', content: data.response }]);
     } catch (error: unknown) {
-      console.error('Error asking character:', error)
+      console.error('Error asking character:', error);
       const errorMessage = error instanceof Error ? error.message : '질문 처리 중 알 수 없는 오류가 발생했습니다.';
       setChatHistory(prev => [...prev.filter(msg => msg.type !== 'loading'), { type: 'bot', content: `오류: ${errorMessage}` }]);
     }
@@ -147,14 +201,13 @@ export default function Playground() {
       <header className="mb-2 md:mb-4">
         <h1 className="text-2xl md:text-3xl font-bold text-center text-gray-800">🧠 캐릭터 Playground</h1>
       </header>
-
       {/* 캐릭터 선택 */}
       <div className="flex-shrink-0 bg-white p-4 rounded-lg shadow">
         <select
           onChange={handleCharacterChange}
           value={selectedCharacter?.id || ''}
           className="border p-3 w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-base md:text-lg"
-          disabled={isLoadingCharacter || isAsking || (isSessionActive && !!selectedCharacter)} // 세션 중에는 캐릭터 변경 불가
+          disabled={isLoadingCharacter || isAsking || (isSessionActive && !!selectedCharacter)}
         >
           <option value="">캐릭터를 선택하세요</option>
           {characters.map((c) => (
@@ -162,125 +215,91 @@ export default function Playground() {
           ))}
         </select>
       </div>
-
       {/* 선택된 캐릭터 정보 및 세션 관리 버튼 */}
       {selectedCharacter && (
         <div className="flex-shrink-0 p-4 border rounded-lg shadow-md bg-white space-y-3">
-          <div className="flex flex-col sm:flex-row items-center justify-between">
-            <div className="flex items-center space-x-4 mb-3 sm:mb-0">
-                {selectedCharacter.image_url && (
-                <Image
-                    src={selectedCharacter.image_url}
-                    alt={selectedCharacter.name}
-                    width={80} 
-                    height={80}
-                    className="rounded-full object-cover border-2 border-indigo-200"
-                />
-                )}
-                <div className="text-center sm:text-left">
-                <p className="text-xl font-semibold text-indigo-700">{selectedCharacter.name}</p>
-                <p className="text-sm text-gray-600 mt-1">{selectedCharacter.description}</p>
-                <p className="text-xs text-gray-500 italic mt-1">World: {selectedCharacter.world.substring(0,100)}{selectedCharacter.world.length > 100 ? '...' : ''}</p>
-                </div>
-            </div>
-            <div className="flex space-x-2">
-                {!isSessionActive ? (
-                    <button
-                        onClick={handleStartSession}
-                        className="bg-green-500 hover:bg-green-600 text-white font-semibold px-4 py-2 rounded-md shadow-sm disabled:opacity-50"
-                        disabled={isLoadingCharacter || isAsking}
-                    >
-                        대화 시작
-                    </button>
-                ) : (
-                    <button
-                        onClick={handleEndSession}
-                        className="bg-red-500 hover:bg-red-600 text-white font-semibold px-4 py-2 rounded-md shadow-sm disabled:opacity-50"
-                        disabled={isLoadingCharacter || isAsking}
-                    >
-                        대화 종료
-                    </button>
-                )}
+          <div className="flex items-center gap-4">
+            {selectedCharacter.image_url && (
+              <Image
+                src={selectedCharacter.image_url}
+                alt={selectedCharacter.name}
+                width={80}
+                height={80}
+                className="rounded object-cover"
+              />
+            )}
+            <div>
+              <h2 className="text-xl font-bold">{selectedCharacter.name}</h2>
+              <p className="text-gray-600 text-sm">{selectedCharacter.description}</p>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* 채팅 기록 영역 */}
-      <div ref={chatContainerRef} className="flex-grow bg-white p-4 rounded-lg shadow-inner overflow-y-auto space-y-3">
-        {chatHistory.length === 0 && !selectedCharacter && (
-          <p className="text-center text-gray-500">먼저 상단에서 캐릭터를 선택해주세요.</p>
-        )}
-        {chatHistory.length === 0 && selectedCharacter && !isSessionActive && !isLoadingCharacter && (
-           <p className="text-center text-gray-500">'{selectedCharacter.name}'님과 대화를 시작하려면 "대화 시작" 버튼을 눌러주세요.</p>
-        )}
-         {chatHistory.length === 0 && selectedCharacter && isSessionActive && !isLoadingCharacter && (
-           <p className="text-center text-gray-500">메시지를 입력하여 '{selectedCharacter.name}'님과의 대화를 시작하세요.</p>
-        )}
-        {chatHistory.map((chat, index) => (
-          <div key={index} className={`flex ${chat.type === 'user' ? 'justify-end' : 'justify-start'} mb-2`}>
-            {chat.type === 'loading' ? (
-              <span className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg inline-block text-sm italic">
-                {chat.content}
-              </span>
-            ) : chat.type === 'info' ? (
-              <span className="text-center text-gray-500 text-sm italic w-full">
-                {chat.content}
-              </span>
-            ) : (
-              <>
-                {chat.type === 'user' && (
-                  <div className={`max-w-[70%] md:max-w-[60%] p-0.5 rounded-lg bg-blue-500`}>
-                    <span className={`px-3 py-2 rounded-lg inline-block break-words text-white`}>
-                      {chat.content}
-                    </span>
-                  </div>
-                )}
-                {chat.type === 'bot' && selectedCharacter && (
-                  <div className="flex flex-col items-start max-w-[70%] md:max-w-[60%]">
-                    <span className="text-xs text-gray-500 ml-2 mb-0.5 font-semibold">{selectedCharacter.name}</span>
-                    <div className={`p-0.5 rounded-lg bg-slate-200 inline-block`}>
-                      <span className={`px-3 py-2 rounded-lg inline-block break-words text-gray-800`}>
-                        {chat.content}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </>
-
+          <div className="flex gap-2 mt-2">
+            {!isSessionActive && (
+              <button
+                className="bg-green-600 text-white px-4 py-2 rounded"
+                onClick={handleStartSession}
+                disabled={isLoadingCharacter}
+              >
+                대화 시작
+              </button>
+            )}
+            {isSessionActive && (
+              <button
+                className="bg-red-600 text-white px-4 py-2 rounded"
+                onClick={handleEndSession}
+                disabled={isLoadingCharacter}
+              >
+                대화 종료
+              </button>
             )}
           </div>
-        ))}
-      </div>
-
-      {/* 채팅 입력 영역 */}
-      {selectedCharacter && (
-        <div className="flex-shrink-0 bg-white p-4 rounded-lg shadow">
-          <div className="flex space-x-2 items-center">
-            <textarea
-              className="border p-3 w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 resize-none text-sm md:text-base"
-              placeholder={isSessionActive ? "캐릭터에게 메시지를 보내세요..." : "대화를 시작해주세요."}
-              value={prompt}
-              rows={2} 
-              onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setPrompt(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey && !isAsking && prompt.trim() && selectedCharacter && isSessionActive) {
-                  e.preventDefault();
-                  handleSendPrompt();
-                }
-              }}
-              disabled={isAsking || isLoadingCharacter || !selectedCharacter || !isSessionActive}
-            />
-            <button
-              onClick={handleSendPrompt}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-3 rounded-md shadow-sm disabled:opacity-50 text-sm md:text-base h-full"
-              disabled={isAsking || isLoadingCharacter || !prompt.trim() || !selectedCharacter || !isSessionActive}
-            >
-              전송
-            </button>
-          </div>
         </div>
       )}
+      {/* 채팅창 */}
+      <div className="flex-1 overflow-y-auto bg-white rounded-lg shadow p-4" ref={chatContainerRef}>
+        {chatHistory.length === 0 ? (
+          <div className="text-center text-gray-400">캐릭터와 대화를 시작해보세요!</div>
+        ) : (
+          chatHistory.map((msg, idx) => (
+            <div key={idx} className={`my-2 ${msg.type === 'user' ? 'text-right' : 'text-left'}`}>
+              <span
+                className={
+                  msg.type === 'user'
+                    ? 'inline-block bg-blue-100 text-blue-900 rounded px-3 py-2'
+                    : msg.type === 'bot'
+                    ? 'inline-block bg-gray-200 text-gray-800 rounded px-3 py-2'
+                    : msg.type === 'loading'
+                    ? 'inline-block bg-yellow-100 text-yellow-800 rounded px-3 py-2'
+                    : 'inline-block bg-gray-100 text-gray-500 rounded px-3 py-2'
+                }
+              >
+                {msg.content}
+              </span>
+            </div>
+          ))
+        )}
+      </div>
+      {/* 입력창 */}
+      <div className="flex gap-2 mt-2">
+        <input
+          type="text"
+          className="flex-1 border rounded px-4 py-2 focus:ring-indigo-500 focus:border-indigo-500"
+          placeholder="질문을 입력하세요"
+          value={prompt}
+          onChange={e => setPrompt(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') handleSendPrompt();
+          }}
+          disabled={!isSessionActive || isAsking}
+        />
+        <button
+          className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
+          onClick={handleSendPrompt}
+          disabled={!isSessionActive || isAsking}
+        >
+          전송
+        </button>
+      </div>
     </div>
-  )
+  );
 }

@@ -16,16 +16,25 @@ export const loadCharacter = async (id: string, world: string) => {
     return res.json()
   }
 
- // LangChain API 호출 유틸 추가
-  export const loadCharacterToRAG = async (id: string, world: string) => {
-    const res = await fetch("http://localhost:8000/load_character", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, world }),
-    })
-  
-    if (!res.ok) {
-      const msg = await res.text()
-      throw new Error("LangChain 연동 실패: " + msg)
-    }
+ // LangChain API 호출 유틸 추가 수정
+ export const loadCharacterToRAG = async (
+  id: string,
+  world: string,
+  profile: {
+    name: string
+    style: string
+    perspective: string
+    tone: string
   }
+) => {
+  const res = await fetch("http://localhost:8000/load_character", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, world, profile }),
+  })
+
+  if (!res.ok) {
+    const msg = await res.text()
+    throw new Error("LangChain 연동 실패: " + msg)
+  }
+}
