@@ -60,6 +60,32 @@ class EndSessionPayload(BaseModel):
 
 # === Routes ===
 
+@app.get("/characters")
+def get_characters():
+    rows = supabase.table("characters").select("id, name").execute()
+    return [{"id": row["id"], "name": row["name"]} for row in rows.data]
+
+@app.get("/sessions")
+def get_sessions(character_id: str = None):
+    query = supabase.table("live_sessions").select("id, character_id")
+    if character_id:
+        query = query.eq("character_id", character_id)
+    rows = query.execute()
+    return [{"id": row["id"]} for row in rows.data]
+
+@app.get("/chat-logs")
+def get_chat_logs(character_id: str = None, session_id: str = None, date: str = None):
+    query = supabase.table("chat_logs").select("id, character_id, session_id, viewer_id, question, response, timestamp")
+    if character_id:
+        query = query.eq("character_id", character_id)
+    if session_id:
+        query = query.eq("session_id", session_id)
+    if date:
+        query = query.gte("timestamp", f"{date}T00:00:00").lt("timestamp", f"{date}T23:59:59")
+    rows = query.order("timestamp", desc=True).execute()
+    return rows.data
+
+
 class CharacterCreatePayload(BaseModel):
     character_id: str
     name: str

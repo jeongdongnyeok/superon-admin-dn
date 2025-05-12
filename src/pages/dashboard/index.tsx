@@ -7,6 +7,7 @@ import Link from 'next/link'
 import CharacterTab from '@/components/CharacterTab'
 import UserTab from '@/components/UserTab'
 import PlaygroundTab from '@/components/PlaygroundTab'
+import ChatLogsTab from '@/components/ChatLogsTab'
 
 function DashboardPage() {
   const router = useRouter()
@@ -27,12 +28,14 @@ function DashboardPage() {
         <Link href="/dashboard?tab=character" className="hover:underline">캐릭터 관리</Link>
         <Link href="/dashboard?tab=user" className="hover:underline">사용자 관리</Link>
         <Link href="/dashboard?tab=playground" className="hover:underline">🧠 Playground</Link>
+        <Link href="/dashboard?tab=chatlogs" className="hover:underline">채팅 로그</Link>
       </nav>
 
       <main>
         {tab === 'character' && <CharacterTab />}
         {tab === 'user' && <UserTab />}
         {tab === 'playground' && <PlaygroundTab />}
+        {tab === 'chatlogs' && <ChatLogsTab />}
         {!tab && <p>탭을 선택해주세요.</p>}
       </main>
     </div>
