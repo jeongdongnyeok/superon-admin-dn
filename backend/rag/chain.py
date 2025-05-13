@@ -9,6 +9,9 @@ from langchain_core.runnables import RunnableMap, RunnablePassthrough, RunnableL
 from langchain_openai import ChatOpenAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
+
+from backend.rag.parsers import emotion_parser
+
 # storage 저장위치 지정
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 db_dir = os.path.join(CURRENT_DIR, "storage")
@@ -78,7 +81,8 @@ Tone: {character_profile.get('tone', '')}"""
             "input": RunnablePassthrough()
         }) |
         prompt |
-        llm
+        llm |
+        EmotionOutputParser()  # 감정 태깅 파서 추가
     )
 
     character_chains[character_id] = chain
@@ -101,22 +105,23 @@ def load_character_index(character_id: str):
             "input": RunnablePassthrough()
         }) |
         fallback_prompt |
-        llm
+        llm |
+        EmotionOutputParser()  # 감정 태깅 파서 추가
     )
 
     character_chains[character_id] = chain
 
-def ask_character(character_id: str, history: List[dict]) -> str:
+def ask_character(character_id: str, history: List[dict]) -> dict:
     if character_id not in character_chains:
         try:
             load_character_index(character_id)
         except Exception as e:
-            return f"[ERROR] {str(e)}"
+            return {"error": str(e)}
 
     chain = character_chains[character_id]
 
     if not history or not isinstance(history, list):
-        return "[ERROR] Invalid chat history"
+        return {"error": "Invalid chat history"}
 
     chat_context = ""
     for turn in history[:-1]:
@@ -127,12 +132,9 @@ def ask_character(character_id: str, history: List[dict]) -> str:
     last_turn = history[-1]
     last_input = last_turn["content"] if isinstance(last_turn, dict) else ""
 
-    # 이전 대화 내용과 현재 사용자 입력을 결합
     final_user_input = ""
     if chat_context:
         final_user_input += f"Previous conversation:\n{chat_context}\n\n"
     final_user_input += f"User: {last_input}"
 
-    # chain.invoke()는 RunnableMap의 Passthrough()에 연결된 input 키에 값을 전달합니다.
-    # character_prompt_template의 {input} 변수에 이 값이 최종적으로 매핑됩니다.
-    return chain.invoke(final_user_input)
+    return chain.invoke(final_user_input)  # 반환값은 dict (response + emotion)
