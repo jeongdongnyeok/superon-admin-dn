@@ -30,6 +30,7 @@ interface ChatLog {
   viewer_id: string;
   question: string;
   response: string;
+  emotion?: string;
   timestamp: string;
 }
 
@@ -80,7 +81,7 @@ const ChatLogsTab: React.FC = () => {
   const fetchLogs = () => {
     setLoading(true);
     setError(null);
-    let url = 'http://localhost:8000/chat-logs?';
+    let url = 'http://localhost:8000/chat/logs?';
     if (selectedCharacter) url += `character_id=${selectedCharacter}&`;
     if (selectedSession) url += `session_id=${selectedSession}&`;
     if (selectedDate) url += `date=${selectedDate.format('YYYY-MM-DD')}&`;
@@ -163,6 +164,7 @@ const ChatLogsTab: React.FC = () => {
                 <TableCell>생성시간</TableCell>
                 <TableCell>질문</TableCell>
                 <TableCell>답변</TableCell>
+                <TableCell>감정</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

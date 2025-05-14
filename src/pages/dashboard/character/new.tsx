@@ -1,159 +1,237 @@
-import { useState } from 'react'
-import { useRouter } from 'next/router'
-import { supabase } from '@/lib/supabaseClient'
-import { loadCharacterToRAG } from '@/lib/apiClient'
 
-export default function NewCharacter() {
-  const router = useRouter()
-  const [name, setName] = useState('')
-  const [characterId, setCharacterId] = useState('')
-  const [description, setDescription] = useState('')
-  const [world, setWorld] = useState('')
-  const [file, setFile] = useState<File | null>(null)
-  const [loading, setLoading] = useState(false)
+import React, { useState } from "react";
+import {
+  TextField, Button, Box, Typography, Chip, MenuItem, Select, InputLabel, FormHelperText
+} from "@mui/material";
+import { v4 as uuidv4 } from "uuid";
+import axios from "axios";
 
-  // 🔽 새로 추가되는 프로필 항목들
-  const [style, setStyle] = useState('')
-  const [perspective, setPerspective] = useState('')
-  const [tone, setTone] = useState('')
+type CharacterFormState = {
+  name: string;
+  age: string;
+  occupation: string;
+  appearance: string;
+  setting: string;
+  era: string;
+  character_position: string;
+  core_traits: string[];
+  vocabulary_level: string;
+  language_formality: string;
+  gender: string;
+  background: string;
+  world_description: string;
+  world_rules: string;
+  style: string;
+  perspective: string;
+  tone: string;
+  speech_patterns: string;
+  catchphrases: string;
+  taboo_topics: string;
+  personal_history: string;
+  relationships: string;
+  current_location: string;
+  emotional_state: string;
+  current_objectives: string;
+};
 
-  const handleSubmit = async () => {
-    setLoading(true)
-    let imageUrl: string | null = null
+const initialState: CharacterFormState = {
+  name: "",
+  age: "",
+  occupation: "",
+  appearance: "",
+  setting: "",
+  era: "",
+  character_position: "",
+  core_traits: [],
+  vocabulary_level: "",
+  language_formality: "",
+  gender: "",
+  background: "",
+  world_description: "",
+  world_rules: "",
+  style: "",
+  perspective: "",
+  tone: "",
+  speech_patterns: "",
+  catchphrases: "",
+  taboo_topics: "",
+  personal_history: "",
+  relationships: "",
+  current_location: "",
+  emotional_state: "",
+  current_objectives: "",
+};
 
-    if (file) {
-      const filePath = `characters/${Date.now()}-${file.name}`
-      const { error: uploadError } = await supabase.storage
-        .from('character-images')
-        .upload(filePath, file)
+const traitOptions = ["용감함", "친절함", "지혜로움", "유머러스함", "성실함", "냉정함"];
 
-      if (uploadError) {
-        alert('이미지 업로드 실패: ' + uploadError.message)
-        setLoading(false)
-        return
-      }
+const requiredFields = [
+  "name", "age", "occupation", "appearance", "setting", "era",
+  "character_position", "core_traits", "vocabulary_level", "language_formality"
+];
 
-      const { data: publicUrlData } = supabase
-        .storage
-        .from('character-images')
-        .getPublicUrl(filePath)
+export default function CharacterNewForm() {
+  const [form, setForm] = useState<CharacterFormState>(initialState);
+  const [coreTraitInput, setCoreTraitInput] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-      imageUrl = publicUrlData.publicUrl
+  // 필수 입력 체크
+  const requiredFilled =
+    form.name &&
+    form.age &&
+    form.occupation &&
+    form.appearance &&
+    form.setting &&
+    form.era &&
+    form.character_position &&
+    form.core_traits.length >= 2 &&
+    form.vocabulary_level &&
+    form.language_formality;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // core_traits 추가/삭제
+  const handleAddTrait = () => {
+    if (coreTraitInput && !form.core_traits.includes(coreTraitInput)) {
+      setForm((prev) => ({
+        ...prev,
+        core_traits: [...prev.core_traits, coreTraitInput],
+      }));
+      setCoreTraitInput("");
+    }
+  };
+  const handleDeleteTrait = (trait: string) => {
+    setForm((prev) => ({
+      ...prev,
+      core_traits: prev.core_traits.filter((t) => t !== trait),
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+
+    if (!requiredFilled) {
+      setError("필수 항목을 모두 입력해 주세요.");
+      return;
     }
 
-    const { error: insertError, data: inserted } = await supabase
-      .from('characters')
-      .insert({
-        name,
-        character_id: characterId,
-        description,
-        image_url: imageUrl,
-        world,
-        style,
-        perspective,
-        tone,
-        status: '대기'
-      })
-      .select()
-      .single()
-
-    if (insertError || !inserted) {
-      alert('캐릭터 생성 실패: ' + insertError?.message)
-      setLoading(false)
-      return
-    }
+    // API payload 구조 맞추기
+    const payload = {
+      character_id: uuidv4(),
+      name: form.name,
+      world: {
+        setting: form.setting,
+        era: form.era,
+        character_position: form.character_position,
+        world_description: form.world_description,
+        world_rules: form.world_rules,
+      },
+      profile: {
+        age: Number(form.age),
+        occupation: form.occupation,
+        appearance: form.appearance,
+        gender: form.gender,
+        background: form.background,
+        personality: {
+          core_traits: form.core_traits,
+          style: form.style,
+          perspective: form.perspective,
+          tone: form.tone,
+          speech_patterns: form.speech_patterns,
+          catchphrases: form.catchphrases,
+          taboo_topics: form.taboo_topics,
+        },
+        speech_pattern: {
+          vocabulary_level: form.vocabulary_level,
+          language_formality: form.language_formality,
+        },
+        personal_history: form.personal_history,
+        relationships: form.relationships,
+        current_location: form.current_location,
+        emotional_state: form.emotional_state,
+        current_objectives: form.current_objectives,
+      },
+    };
 
     try {
-      await loadCharacterToRAG(inserted.character_id, world, {
-        name,
-        style,
-        perspective,
-        tone
-      })
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        alert('RAG 서버 등록 실패: ' + err.message)
-      } else {
-        alert('RAG 서버 등록 실패: 알 수 없는 에러')
-      }
+      await axios.post("/api/character", payload);
+      setSuccess("캐릭터가 성공적으로 생성되었습니다!");
+      setForm(initialState);
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || "캐릭터 생성에 실패했습니다.");
     }
-
-    alert('캐릭터 생성 완료!')
-    router.push('/dashboard?tab=character')
-    setLoading(false)
-  }
+  };
 
   return (
-    <div className="p-8 space-y-4">
-      <h1 className="text-xl font-bold">새 캐릭터 생성</h1>
+    <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: 600, mx: "auto", p: 3 }}>
+      <Typography variant="h5" gutterBottom>캐릭터 생성</Typography>
+      {/* 필수 입력 */}
+      <TextField label="이름" name="name" value={form.name} onChange={handleChange} fullWidth required margin="normal" InputLabelProps={{ required: true, sx: { "& .MuiFormLabel-asterisk": { color: "red" } } }} />
+      <TextField label="나이" name="age" type="number" value={form.age} onChange={handleChange} fullWidth required margin="normal" InputLabelProps={{ required: true, sx: { "& .MuiFormLabel-asterisk": { color: "red" } } }} />
+      <TextField label="직업" name="occupation" value={form.occupation} onChange={handleChange} fullWidth required margin="normal" InputLabelProps={{ required: true, sx: { "& .MuiFormLabel-asterisk": { color: "red" } } }} />
+      <TextField label="외형" name="appearance" value={form.appearance} onChange={handleChange} fullWidth required margin="normal" InputLabelProps={{ required: true, sx: { "& .MuiFormLabel-asterisk": { color: "red" } } }} />
+      <TextField label="세계관" name="setting" value={form.setting} onChange={handleChange} fullWidth required margin="normal" InputLabelProps={{ required: true, sx: { "& .MuiFormLabel-asterisk": { color: "red" } } }} />
+      <TextField label="시대" name="era" value={form.era} onChange={handleChange} fullWidth required margin="normal" InputLabelProps={{ required: true, sx: { "& .MuiFormLabel-asterisk": { color: "red" } } }} />
+      <TextField label="세계 내 위치/역할" name="character_position" value={form.character_position} onChange={handleChange} fullWidth required margin="normal" InputLabelProps={{ required: true, sx: { "& .MuiFormLabel-asterisk": { color: "red" } } }} />
+      {/* core_traits (최소 2개) */}
+      <Box sx={{ my: 2 }}>
+        <InputLabel>성격 특성 <span style={{ color: 'red' }}>*</span> (최소 2개)</InputLabel>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Select
+            value={coreTraitInput}
+            onChange={(e) => setCoreTraitInput(e.target.value as string)}
+            displayEmpty
+            sx={{ minWidth: 120 }}
+          >
+            <MenuItem value=""><em>선택</em></MenuItem>
+            {traitOptions.map((option) => (
+              <MenuItem key={option} value={option}>{option}</MenuItem>
+            ))}
+          </Select>
+          <Button onClick={handleAddTrait} disabled={!coreTraitInput || form.core_traits.includes(coreTraitInput)}>추가</Button>
+        </Box>
+        <Box sx={{ mt: 1 }}>
+          {form.core_traits.map((trait) => (
+            <Chip key={trait} label={trait} onDelete={() => handleDeleteTrait(trait)} sx={{ mr: 1 }} />
+          ))}
+        </Box>
+        {form.core_traits.length < 2 && (
+          <FormHelperText error>최소 2개 이상 입력 필요</FormHelperText>
+        )}
+      </Box>
+      <TextField label="어휘 수준" name="vocabulary_level" value={form.vocabulary_level} onChange={handleChange} fullWidth required margin="normal" InputLabelProps={{ required: true, sx: { "& .MuiFormLabel-asterisk": { color: "red" } } }} />
+      <TextField label="언어 격식" name="language_formality" value={form.language_formality} onChange={handleChange} fullWidth required margin="normal" InputLabelProps={{ required: true, sx: { "& .MuiFormLabel-asterisk": { color: "red" } } }} />
 
-      <input
-        type="text"
-        placeholder="캐릭터 이름"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        className="border p-2 w-full"
-      />
+      {/* 선택 입력 */}
+      <Typography variant="h6" sx={{ mt: 3 }}>선택 입력</Typography>
+      <TextField label="성별" name="gender" value={form.gender} onChange={handleChange} fullWidth margin="normal" />
+      <TextField label="배경" name="background" value={form.background} onChange={handleChange} fullWidth margin="normal" />
+      <TextField label="세계관 상세 설명" name="world_description" value={form.world_description} onChange={handleChange} fullWidth margin="normal" />
+      <TextField label="세계의 규칙" name="world_rules" value={form.world_rules} onChange={handleChange} fullWidth margin="normal" />
+      <TextField label="커뮤니케이션 스타일" name="style" value={form.style} onChange={handleChange} fullWidth margin="normal" />
+      <TextField label="관점" name="perspective" value={form.perspective} onChange={handleChange} fullWidth margin="normal" />
+      <TextField label="감정적 톤" name="tone" value={form.tone} onChange={handleChange} fullWidth margin="normal" />
+      <TextField label="말투/특징" name="speech_patterns" value={form.speech_patterns} onChange={handleChange} fullWidth margin="normal" />
+      <TextField label="자주 쓰는 말/유행어" name="catchphrases" value={form.catchphrases} onChange={handleChange} fullWidth margin="normal" />
+      <TextField label="금기 주제" name="taboo_topics" value={form.taboo_topics} onChange={handleChange} fullWidth margin="normal" />
+      <TextField label="개인사" name="personal_history" value={form.personal_history} onChange={handleChange} fullWidth margin="normal" />
+      <TextField label="주요 관계" name="relationships" value={form.relationships} onChange={handleChange} fullWidth margin="normal" />
+      <TextField label="현재 위치" name="current_location" value={form.current_location} onChange={handleChange} fullWidth margin="normal" />
+      <TextField label="현재 감정 상태" name="emotional_state" value={form.emotional_state} onChange={handleChange} fullWidth margin="normal" />
+      <TextField label="현재 목표" name="current_objectives" value={form.current_objectives} onChange={handleChange} fullWidth margin="normal" />
 
-      <input
-        type="text"
-        placeholder="영문 character_id (API 식별자)"
-        value={characterId}
-        onChange={(e) => setCharacterId(e.target.value)}
-        className="border p-2 w-full"
-      />
+      {/* 에러/성공 메시지 */}
+      {error && <Typography color="error" sx={{ mt: 2 }}>{error}</Typography>}
+      {success && <Typography color="primary" sx={{ mt: 2 }}>{success}</Typography>}
 
-      <textarea
-        placeholder="설명"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        className="border p-2 w-full h-24"
-      />
-
-      <textarea
-        placeholder="세계관 설명을 입력하세요"
-        value={world}
-        onChange={(e) => setWorld(e.target.value)}
-        className="border p-2 w-full h-32"
-      />
-
-      {/* 🔽 프로필 세부 항목 입력 */}
-      <input
-        type="text"
-        placeholder="스타일 (ex. 차가운, 활기찬)"
-        value={style}
-        onChange={(e) => setStyle(e.target.value)}
-        className="border p-2 w-full"
-      />
-      <input
-        type="text"
-        placeholder="관점 (ex. 미래에 대한 시각)"
-        value={perspective}
-        onChange={(e) => setPerspective(e.target.value)}
-        className="border p-2 w-full"
-      />
-      <input
-        type="text"
-        placeholder="말투 (ex. 건조하고 직설적)"
-        value={tone}
-        onChange={(e) => setTone(e.target.value)}
-        className="border p-2 w-full"
-      />
-
-      <input
-        type="file"
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-          setFile(e.target.files?.[0] || null)
-        }
-      />
-
-      <button
-        onClick={handleSubmit}
-        className="border px-4 py-2 rounded"
-        disabled={loading}
-      >
-        {loading ? '생성 중...' : '캐릭터 생성'}
-      </button>
-    </div>
-  )
+      <Button type="submit" variant="contained" color="primary" fullWidth sx={{ mt: 3 }} disabled={!requiredFilled}>
+        캐릭터 생성
+      </Button>
+    </Box>
+  );
 }
