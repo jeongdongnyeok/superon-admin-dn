@@ -3,7 +3,15 @@ const nextConfig = {
   images: {
     domains: ['ljzxzgouucbkprvpifvy.supabase.co'],
   },
-  // 다른 설정들 추가 가능
-}
+  async rewrites() {
+    return [
+      {
+        source: '/tiktok/:path*',
+        destination: 'http://localhost:8000/tiktok/:path*',
+      },
+
+    ];
+  },
+};
 
 module.exports = nextConfig

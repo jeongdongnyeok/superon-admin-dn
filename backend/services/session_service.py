@@ -14,13 +14,12 @@ def get_sessions(character_id: str = None):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"세션 목록 조회 실패: {str(e)}")
 
-def start_session(payload: StartSessionPayload):
+def start_session():
     try:
         session_id = str(uuid4())
         now = datetime.now().isoformat()
         supabase.table("live_sessions").insert({
             "id": session_id,
-            "character_id": payload.character_id,
             "created_at": now,
         }).execute()
         return {"session_id": session_id, "created_at": now}

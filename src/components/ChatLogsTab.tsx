@@ -25,7 +25,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 // Types
 interface ChatLog {
   id: string;
-  character_id: string;
+  characters_id: string;
   session_id: string;
   viewer_id: string;
   question: string;
@@ -34,7 +34,7 @@ interface ChatLog {
   timestamp: string;
 }
 
-interface CharacterOption {
+interface CharactersOption {
   id: string;
   name: string;
 }
@@ -45,9 +45,9 @@ interface SessionOption {
 
 const ChatLogsTab: React.FC = () => {
   const [logs, setLogs] = useState<ChatLog[]>([]);
-  const [characters, setCharacters] = useState<CharacterOption[]>([]);
+  const [characters, setCharacterss] = useState<CharactersOption[]>([]);
   const [sessions, setSessions] = useState<SessionOption[]>([]);
-  const [selectedCharacter, setSelectedCharacter] = useState('');
+  const [selectedCharacters, setSelectedCharacters] = useState('');
   const [selectedSession, setSelectedSession] = useState('');
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
   const [loading, setLoading] = useState(false);
@@ -60,14 +60,14 @@ const ChatLogsTab: React.FC = () => {
         if (!res.ok) throw new Error('FastAPI 서버에서 캐릭터 목록을 불러오지 못했습니다.');
         return res.json();
       })
-      .then(data => setCharacters(data))
+      .then(data => setCharacterss(data))
       .catch(() => setError('FastAPI 서버에서 캐릭터 목록을 불러오지 못했습니다.'));
   }, []);
 
   // Fetch session list for filter (filtered by character if selected)
   useEffect(() => {
     let url = 'http://localhost:8000/sessions';
-    if (selectedCharacter) url += `?character_id=${selectedCharacter}`;
+    if (selectedCharacters) url += `?characters_id=${selectedCharacters}`;
     fetch(url)
       .then(res => {
         if (!res.ok) throw new Error('FastAPI 서버에서 세션 목록을 불러오지 못했습니다.');
@@ -75,14 +75,14 @@ const ChatLogsTab: React.FC = () => {
       })
       .then(data => setSessions(data))
       .catch(() => setError('FastAPI 서버에서 세션 목록을 불러오지 못했습니다.'));
-  }, [selectedCharacter]);
+  }, [selectedCharacters]);
 
   // Fetch chat logs
   const fetchLogs = () => {
     setLoading(true);
     setError(null);
     let url = 'http://localhost:8000/chat/logs?';
-    if (selectedCharacter) url += `character_id=${selectedCharacter}&`;
+    if (selectedCharacters) url += `characters_id=${selectedCharacters}&`;
     if (selectedSession) url += `session_id=${selectedSession}&`;
     if (selectedDate) url += `date=${selectedDate.format('YYYY-MM-DD')}&`;
     fetch(url)
@@ -98,7 +98,7 @@ const ChatLogsTab: React.FC = () => {
   useEffect(() => {
     fetchLogs();
     // eslint-disable-next-line
-  }, [selectedCharacter, selectedSession, selectedDate]);
+  }, [selectedCharacters, selectedSession, selectedDate]);
 
   return (
     <Box p={2}>
@@ -109,10 +109,10 @@ const ChatLogsTab: React.FC = () => {
         <FormControl size="small" sx={{ minWidth: 160 }}>
           <InputLabel>캐릭터</InputLabel>
           <Select
-            value={selectedCharacter}
+            value={selectedCharacters}
             label="캐릭터"
             onChange={e => {
-              setSelectedCharacter(e.target.value);
+              setSelectedCharacters(e.target.value);
               setSelectedSession('');
             }}
           >
@@ -128,7 +128,7 @@ const ChatLogsTab: React.FC = () => {
             value={selectedSession}
             label="세션"
             onChange={e => setSelectedSession(e.target.value)}
-            disabled={!selectedCharacter}
+            disabled={!selectedCharacters}
           >
             <MenuItem value="">전체</MenuItem>
             {sessions.map(sess => (
@@ -170,7 +170,7 @@ const ChatLogsTab: React.FC = () => {
             <TableBody>
               {logs.map(log => (
                 <TableRow key={log.id}>
-                  <TableCell>{characters.find(c => c.id === log.character_id)?.name || log.character_id}</TableCell>
+                  <TableCell>{characters.find(c => c.id === log.characters_id)?.name || log.characters_id}</TableCell>
                   <TableCell>{log.viewer_id}</TableCell>
                   <TableCell>{log.session_id}</TableCell>
                   <TableCell>{dayjs(log.timestamp).format('YYYY-MM-DD HH:mm')}</TableCell>

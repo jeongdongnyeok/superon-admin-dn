@@ -1,0 +1,25 @@
+# Task ID: 4
+# Title: Implement Broadcast Tab and Motion Tag Video System
+# Status: pending
+# Dependencies: 1, 2
+# Priority: medium
+# Description: Develop the broadcast tab for local video playback with motion tags and real-time state transitions driven by TikTokLive chat and LLM responses.
+# Details:
+1. Implement the broadcast tab to play local video files from localhost/motion/filename.
+2. Store video metadata in a JSON file, with each video assigned a 'motion' tag: neutral (default), talking, or reaction. Each tag can map to multiple videos, but each video has only one tag.
+3. Integrate TikTokLive chat input: forward each chat to the character's LangChain LLM and receive a response text and emotion tag.
+4. Play TTS audio for the response, and while audio is playing, display a video with the 'talking' tag.
+5. When TTS/audio streaming ends, automatically switch back to a 'neutral' video.
+6. If a reaction event is triggered (e.g., by a gift/chat), play a 'reaction' tagged video.
+7. Implement state management for video transitions and error handling for video/audio playback.
+
+# Test Strategy:
+Test video playback for each motion tag. Verify correct transitions between neutral, talking, and reaction videos based on chat and LLM response. Ensure TTS audio and talking video are synchronized. Test error handling for missing or failed video/audio files. Simulate TikTokLive chat and verify end-to-end flow.
+1. Test animation asset upload and storage
+2. Verify correct rendering of animations in different browsers
+3. Test state transitions between all emotion combinations
+4. Measure performance metrics for animation rendering
+5. Validate animation sequencing with timing tests
+6. Test fallback mechanisms for missing animations
+7. Verify canvas rendering quality at different resolutions
+8. Test animation system with various character asset styles

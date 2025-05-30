@@ -9,9 +9,18 @@ export default function LoginPage() {
   const [error, setError] = useState('')
 
   const handleLogin = async () => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    console.log("로그인 결과:", data, error);
     if (error) setError(error.message)
-    else router.push('/dashboard')
+    else {
+      // 서버 세션 쿠키 동기화
+      await fetch('/api/auth/callback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'SIGNED_IN', session: data.session })
+      });
+      router.push('/dashboard');
+    }
   }
 
   return (

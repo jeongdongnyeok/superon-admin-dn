@@ -10,6 +10,7 @@ def list_characters():
 
 @router.post("/create")
 def create_character_route(payload: CharacterCreatePayload):
+    # CharacterCreatePayload.profile now includes 'country'
     return create_character(payload)
 
 @router.post("/load")

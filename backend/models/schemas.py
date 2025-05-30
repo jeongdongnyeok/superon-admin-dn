@@ -1,15 +1,20 @@
 from pydantic import BaseModel
 from typing import List, Literal
 
+from typing import Optional
+
+from sqlalchemy import desc
+
 class CharacterProfile(BaseModel):
-    name: str
-    style: str
+    name: Optional[str] = None
+    style: Optional[str] = None
     perspective: str
-    tone: str
+    tone: Optional[str] = None
+    country: str  # 국가 정보 추가
 
 class CharacterPayload(BaseModel):
     id: str
-    world: str
+    description: str
     profile: CharacterProfile
 
 class ChatTurn(BaseModel):
@@ -23,13 +28,12 @@ class AskPayload(BaseModel):
     history: List[ChatTurn]
 
 class StartSessionPayload(BaseModel):
-    character_id: str
+    pass
 
 class EndSessionPayload(BaseModel):
     session_id: str
 
 class CharacterCreatePayload(BaseModel):
-    character_id: str
     name: str
-    world: str
+    description: str
     profile: CharacterProfile

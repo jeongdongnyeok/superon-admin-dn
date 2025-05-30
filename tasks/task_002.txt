@@ -1,0 +1,44 @@
+# Task ID: 2
+# Title: Implement Admin Dashboard Core
+# Status: done
+# Dependencies: 1
+# Priority: high
+# Description: Develop the basic admin dashboard with authentication, character profile management, and configuration interfaces.
+# Details:
+1. Create authentication screens:
+   - Login page with email/password authentication
+   - Registration page with admin approval flow
+   - Password reset functionality
+   - MFA implementation
+
+2. Develop character management interface:
+   - Character listing page with filtering and sorting
+   - Character creation form with basic fields (name, description, status)
+   - Character editing capabilities
+   - Image upload for base character assets
+
+3. Implement basic configuration screens:
+   - Simple worldview definition interface
+   - Basic prompt management system
+   - Voice profile configuration
+
+4. Create navigation and layout:
+   - Responsive sidebar navigation
+   - Header with user profile and quick actions
+   - Dashboard overview with key metrics
+
+Technology stack:
+- React for frontend
+- Supabase Auth for authentication
+- Redux or Context API for state management
+- React Router for navigation
+- Form libraries (Formik or React Hook Form)
+
+# Test Strategy:
+1. Test authentication flows including login, logout, and password reset
+2. Verify role-based access control for admin features
+3. Test character CRUD operations with various input combinations
+4. Validate image upload functionality and storage
+5. Test responsive design across different device sizes
+6. Verify form validation and error handling
+7. Conduct usability testing with sample admin users

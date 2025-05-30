@@ -9,8 +9,8 @@ def list_sessions(character_id: str = None):
     return get_sessions(character_id)
 
 @router.post("/start")
-def start_session_route(payload: StartSessionPayload):
-    return start_session(payload)
+def start_session_route():
+    return start_session()
 
 @router.post("/end")
 def end_session_route(payload: EndSessionPayload):

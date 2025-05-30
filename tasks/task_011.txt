@@ -1,0 +1,51 @@
+# Task ID: 11
+# Title: 데이터베이스 스키마 고도화
+# Status: pending
+# Dependencies: None
+# Priority: medium
+# Description: Supabase 데이터베이스의 스키마를 개선하고 RLS, 제약 조건, 인덱스 등을 추가하여 안정성과 성능을 향상시킵니다.
+# Details:
+### 1. RLS(Row Level Security) 활성화 (고도화)
+- [ ] RLS 활성화 (현재는 프론트엔드 인증 이슈로 임시 비활성화 중)
+- [ ] 역할 기반 접근 제어 정책 정의
+  - 관리자: 모든 CRUD 권한
+  - 에디터: 생성, 읽기, 업데이트 권한
+  - 뷰어: 읽기 전용 권한
+- [ ] 인증/인가 정책 테스트 케이스 작성
+
+### 2. 데이터 무결성 강화
+- [ ] 외래 키 제약 조건 추가
+  - chat_logs.character_id → characters.id
+  - live_sessions.character_id → characters.id
+  - chat_logs.session_id → live_sessions.id
+- [ ] NOT NULL 제약 조건 추가
+  - 필수 필드에 대한 NOT NULL 제약 조건 추가
+  - 기본값 설정 검토
+- [ ] CHECK 제약 조건 추가
+  - status, emotion 필드에 대한 유효성 검사
+
+### 3. 성능 최적화
+- [ ] 인덱스 추가
+  - 자주 검색되는 컬럼에 대한 인덱스 추가
+  - 외래 키 컬럼에 대한 인덱스 추가
+- [ ] 파티셔닝 전략 수립 (chat_logs 테이블 대상)
+  - 시간 기반 파티셔닝 적용 검토
+
+### 4. 확장성 고려
+- [ ] pgvector 확장 추가 (이미지/텍스트 임베딩용)
+- [ ] Full-Text Search 인덱스 추가
+- [ ] JSONB 필드에 대한 GIN 인덱스 추가
+
+# Test Strategy:
+1. RLS 정책 테스트
+   - 각 역할별로 CRUD 작업 시도 및 권한 검증
+   - 인증되지 않은 사용자의 접근 차단 확인
+
+2. 제약 조건 테스트
+   - 외래키 위반 시나리오 테스트
+   - NOT NULL 제약 조건 위반 테스트
+   - CHECK 제약 조건 위반 테스트
+
+3. 성능 테스트
+   - 인덱스 적용 전/후 쿼리 성능 비교
+   - 대용량 데이터에서의 쿼리 성능 모니터링

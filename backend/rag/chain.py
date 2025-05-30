@@ -28,21 +28,11 @@ splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
 # 캐릭터 체인 캐시
 character_chains = {}
 
-# 템플릿
-character_prompt_template = """
-You are a virtual character named **{name}**.
+# Jinja2 템플릿 환경 설정
+from jinja2 import Environment, FileSystemLoader
 
-World setting:
-"{world}"
-
-Personality:
-- Style: {style}
-- Perspective: {perspective}
-- Tone: {tone}
-
-Using the above information, answer the following input **in character**:
-"{input}"
-"""
+TEMPLATE_DIR = os.path.join(CURRENT_DIR, "../templates/character")
+jinja_env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
 
 # 문서 → 문자열 변환 함수
 def format_docs(docs: List[Document]) -> str:
@@ -67,7 +57,24 @@ Tone: {character_profile.get('tone', '')}"""
     vectordb.save_local(os.path.join(db_dir, character_id))
     retriever = vectordb.as_retriever(search_kwargs={"k": 3})
 
-    prompt = PromptTemplate.from_template(character_prompt_template).partial(
+    # 국가에 따라 Jinja2 템플릿 파일 선택 및 렌더링
+    country = str(character_profile.get("country", "")).lower()
+    if country == "korean":
+        template_file = "character_prompt_template_kr.j2"
+    else:
+        template_file = "character_prompt_template_en.j2"
+
+    template = jinja_env.get_template(template_file)
+    prompt_template = template.render(
+        name=str(character_profile.get("name", "")),
+        style=str(character_profile.get("style", "")),
+        perspective=str(character_profile.get("perspective", "")),
+        tone=str(character_profile.get("tone", "")),
+        world=str(world_text),
+        input="{input}"
+    )
+
+    prompt = PromptTemplate.from_template(prompt_template).partial(
         name=str(character_profile.get("name", "")),
         style=str(character_profile.get("style", "")),
         perspective=str(character_profile.get("perspective", "")),

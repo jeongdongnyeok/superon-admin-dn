@@ -1,0 +1,615 @@
+# Virtual Character 24/7 Live Streaming MVP - PRD
+
+## Overview
+The Virtual Character 24/7 Live Streaming platform creates AI-driven virtual personalities capable of continuous interaction with audiences on TikTok Live. This serverless solution enables the creation, management, and streaming of virtual characters that respond to audience Super Chat messages in real-time with appropriate animations, emotions, and voice responses. The platform addresses the growing demand for innovative content creation in the digital space, allowing content creators and businesses to maintain an always-on presence without human intervention, while providing audiences with novel, interactive entertainment experiences.
+
+## Core Features
+
+### Character Creation and Management
+- **What it does**: Enables administrators to create, customize, and manage virtual character profiles through an intuitive dashboard.
+- **Why it's important**: Forms the foundation of the platform by allowing for diverse character creation that can appeal to different audience segments.
+- **How it works**: Administrators upload base images, define character information (personality, backstory, voice settings), and establish unique worldviews that guide character responses.
+
+### Worldview and Prompt Engineering
+- **What it does**: Manages the AI's understanding of each character's personality, knowledge base, and response patterns.
+- **Why it's important**: Ensures consistent, in-character responses that maintain audience immersion and engagement.
+- **How it works**: Character worldviews are stored in vector databases through LangChain's RAG (Retrieval-Augmented Generation) structure, which serves as unique memories for the character to reference when responding. Administrators can register customized prompts for each character to match various interaction types, which are incorporated into actual response generation through LangChain's prompt injection functionality. Additionally, the Memory feature continuously remembers and reflects conversation flow and previous context with users, providing more natural and consistent character responses. This entire configuration can be visually designed and managed through LangFlow.
+
+### Super Chat Interaction Processing
+- **What it does**: Captures, processes, and responds to audience messages sent through TikTok Live's Super Chat feature.
+- **Why it's important**: Creates a monetization pathway while focusing the system on high-value interactions.
+- **How it works**: User messages are received in real-time through the TikTok Live API, and all chat history from live sessions is automatically saved. Administrators can view complete chat history for each session and analyze and manage interaction content through features such as chronological sorting, user filtering, and emotion tagging. After a live session ends, the chat log for that session can be reviewed separately. Incoming Super Chat messages are analyzed by LangChain, which generates contextually appropriate responses based on the character's defined personality.
+
+### Emotion-Driven Animation System
+- **What it does**: Automatically maps AI-generated responses to appropriate visual animations and expressions.
+- **Why it's important**: Brings characters to life visually, making interactions more engaging and realistic.
+- **How it works**: Character responses generated through LangChain are automatically tagged with emotion categories and mapped to pre-registered emotion-specific animations, triggering appropriate motions based on the character's base image assets. Through the admin UI, administrators can directly register and map animations for each emotion category (e.g., happiness, sadness, anger, etc.), allowing for fine-grained control over each character's emotional expressions.
+
+### Text-to-Speech Integration
+- **What it does**: Converts text responses into natural-sounding voice audio customized for each character.
+- **Why it's important**: Adds another dimension of personality and engagement to character interactions.
+- **How it works**: AI-generated text is processed through TTS services with voice settings tailored to each character's persona.
+
+### Seamless Streaming Integration
+- **What it does**: Combines character animations and audio into a continuous live stream on TikTok Live.
+- **Why it's important**: Delivers the final product to the audience in a professional, engaging format.
+- **How it works**: OBS Studio integrates the animation and audio outputs, incorporating buffer animations to handle processing delays.
+
+### Performance Analytics
+- **What it does**: Tracks, analyzes, and visualizes audience interaction data and character performance metrics.
+- **Why it's important**: Provides insights for continuous improvement of characters and business intelligence.
+- **How it works**: All interactions are logged, analyzed for patterns, and presented through dashboards that help administrators optimize character performance.
+
+## User Experience
+
+### User Personas
+
+#### Admin Users
+- Content creators or businesses managing virtual characters
+- Technical proficiency: Intermediate
+- Goals: Create engaging characters, monitor performance, maximize audience engagement and revenue
+- Pain points: Limited time for content creation, need for consistent presence, difficulty scaling content creation
+
+#### Audience Users
+- TikTok Live viewers interested in novel interactive content
+- Age range: 16-35
+- Goals: Entertainment, unique interaction experiences, feeling of connection with characters
+- Pain points: Repetitive content, lack of personalized responses, limited availability of creators
+
+### Key User Flows
+
+#### Admin Flow
+1. **Character Creation**
+   - Log into admin dashboard
+   - Create new character profile
+   - Upload basic character thumbnail image and emotion-tagged motion animations
+   - Define character attributes, personality, and worldview
+   - Configure voice settings and speech patterns
+
+2. **Live Stream Management**
+   - Launch character live stream
+   - Monitor real-time interaction metrics
+   - Make on-the-fly adjustments to character settings if needed
+   - Review performance after streaming sessions
+
+3. **Analytics Review**
+   - Examine engagement metrics
+   - Identify popular interaction patterns
+   - Adjust character parameters based on performance data
+
+#### Audience Flow
+1. **Discovery**
+   - Find virtual character on TikTok Live
+   - Observe character interactions and personality
+
+2. **Engagement**
+   - Send Super Chat message to character
+   - Receive personalized character response with appropriate animation and voice
+   - Continue interaction or share with friends
+
+### UI/UX Considerations
+- **Admin Dashboard**: Clean, intuitive interface with clear navigation between character management, stream controls, and analytics
+- **Character Creation Forms**: Guided step-by-step process with previews of how settings affect character behavior
+- **Analytics Visualization**: Clear graphs and metrics that highlight important performance indicators
+- **Live Stream Monitoring**: Real-time view of current stream performance with actionable controls
+
+## Technical Architecture
+
+### System Components
+
+#### Admin Dashboard
+- **Frontend**: React-based SPA hosted on Vercel
+- **Backend**: Serverless functions on Vercel
+- **Authentication**: Supabase Auth with role-based access control
+- **State Management**: Redux or Context API for complex state management
+
+#### Character Engine
+- **Worldview Storage**: Vector database via Supabase pgvector extension
+- **Prompt Management**: LangChain-based prompt templates stored in Supabase
+- **Response Generation**: LangChain integration with appropriate LLM (e.g., OpenAI API)
+- **Emotion Classification**: NLP-based classifier to tag responses with emotional states
+
+#### Animation System
+- **Asset Management**: CDN-hosted character images and animation sequences
+- **Animation Renderer**: Browser-based animation engine (possibly Three.js or similar)
+- **Buffering System**: Pre-rendered transitional animations to handle processing delays
+
+#### Voice Synthesis
+- **TTS Service**: Integration with high-quality TTS API (e.g., ElevenLabs)
+- **Voice Profile Management**: Database of voice settings per character
+- **Audio Processing**: Browser-based audio manipulation for real-time adjustments
+
+#### Streaming Integration
+- **OBS Controller**: API integration with OBS via obs-websocket
+- **Stream Output Manager**: Configuration system for different streaming platforms
+- **Monitoring Service**: Health checks and automatic recovery for 24/7 operation
+
+#### Analytics Engine
+- **Data Collection**: Event-based logging system
+- **Storage**: Supabase time-series data tables
+- **Processing**: Scheduled serverless functions for aggregation and analysis
+- **Visualization**: Embedded analytics dashboards using charting libraries
+
+### Data Models
+
+#### Character Profile
+```
+{
+  id: UUID,
+  name: String,
+  creator_id: UUID (foreign key to admin users),
+  created_at: Timestamp,
+  updated_at: Timestamp,
+  status: Enum (active, inactive, in_development),
+  base_image_url: String,
+  animation_set_id: UUID,
+  voice_profile_id: UUID,
+  personality_traits: JSON,
+  backstory: Text,
+  worldview_id: UUID,
+  default_prompts: JSON,
+  supported_languages: Array<String>
+}
+```
+
+#### Worldview
+```
+{
+  id: UUID,
+  character_id: UUID,
+  vector_embeddings: Vector[],
+  knowledge_base: JSON,
+  personality_guidelines: Text,
+  response_patterns: JSON,
+  created_at: Timestamp,
+  updated_at: Timestamp
+}
+```
+
+#### Animation Set
+```
+{
+  id: UUID,
+  character_id: UUID,
+  base_animations: {
+    idle: [URL strings],
+    talking: [URL strings],
+    thinking: [URL strings],
+    transitions: [URL strings]
+  },
+  emotion_animations: {
+    happy: [URL strings],
+    sad: [URL strings],
+    surprised: [URL strings],
+    angry: [URL strings],
+    fear: [URL strings],
+    disgust: [URL strings],
+    talk: [URL strings],
+    neutral: [URL strings]  
+    // Additional emotions
+  }
+}
+```
+
+#### Interaction
+```
+{
+  id: UUID,
+  character_id: UUID,
+  session_id: UUID,
+  user_id: String (TikTok user ID),
+  user_message: Text,
+  super_chat_amount: Decimal,
+  response_text: Text,
+  emotion_tag: String,
+  animation_used: String,
+  voice_clip_url: String,
+  timestamp: Timestamp,
+  processing_time_ms: Integer,
+  metrics: {
+    viewer_count: Integer,
+    likes: Integer,
+    shares: Integer,
+    followup_interactions: Integer
+  }
+}
+```
+
+#### Streaming Session
+```
+{
+  id: UUID,
+  character_id: UUID,
+  start_time: Timestamp,
+  end_time: Timestamp,
+  status: Enum (active, completed, failed),
+  platform: String,
+  stream_url: String,
+  viewer_stats: {
+    peak_viewers: Integer,
+    average_viewers: Integer,
+    total_views: Integer
+  },
+  interaction_stats: {
+    total_interactions: Integer,
+    super_chat_revenue: Decimal,
+    popular_topics: JSON
+  },
+  technical_metrics: {
+    uptime_percentage: Float,
+    average_response_time_ms: Integer,
+    error_count: Integer
+  }
+}
+```
+
+### APIs and Integrations
+
+#### Internal APIs
+- **Character Management API**: CRUD operations for character profiles
+- **Worldview API**: Manage and query character worldviews
+- **Animation API**: Handle animation asset management and sequencing
+- **Voice API**: Manage voice profiles and TTS generation
+- **Analytics API**: Data collection and reporting endpoints
+
+#### External Integrations
+- **LangChain**: For prompt management and LLM integration
+- **TikTok Live API**: To receive and process viewer interactions
+- **TTS Service API**: For voice synthesis
+- **OBS WebSocket API**: For controlling the streaming software
+- **Vector Database**: For efficient similarity search of worldview data
+
+### Infrastructure Requirements
+
+#### Supabase Resources
+- **Database**: PostgreSQL with pgvector extension
+- **Authentication**: User management system
+- **Storage**: For character assets and generated media
+- **Edge Functions**: For serverless API endpoints
+
+#### Vercel Resources
+- **Hosting**: For the admin dashboard SPA
+- **Serverless Functions**: For API endpoints and processing logic
+- **Edge Network**: For global content delivery
+
+#### Additional Infrastructure
+- **Streaming Server**: VM or dedicated service for running OBS Studio
+- **Media Processing**: Service for handling animation rendering and audio processing
+- **CDN**: For delivering character assets and streams globally
+- **Monitoring**: System health and performance monitoring solution
+
+## Development Roadmap
+
+### Phase 1: Foundation (MVP)
+
+#### Admin Dashboard - Core
+- Basic authentication with admin roles
+- Simple character profile creation and management
+- Minimal worldview definition interface
+- Basic prompt management system
+
+#### Character Engine - Core
+- Integration with LangChain for basic response generation
+- Simple prompt templates for handling Super Chat messages
+- Basic emotion classification (4-5 basic emotions)
+
+#### Animation System - Core
+- Support for static character images with simple transitions
+- Basic emotion-based expressions (happy, sad, neutral, surprised)
+- Simple animation sequencing system
+
+#### Voice Synthesis - Core
+- Integration with TTS service for basic voice generation
+- Simple voice profile configuration per character
+- Basic audio output formatting for OBS
+
+#### Streaming Integration - Core
+- Manual OBS setup with basic scene configuration
+- Simple browser source for displaying character animations
+- Basic audio routing from TTS to stream
+
+#### Analytics - Core
+- Simple logging of interactions and sessions
+- Basic dashboard showing key metrics
+- CSV export functionality for further analysis
+
+### Phase 2: Enhanced Experience
+
+#### Admin Dashboard - Enhanced
+- Drag-and-drop character asset management
+- Visual worldview builder with concept mapping
+- Advanced prompt template editor with testing capability
+- Multi-user support with role-based permissions
+
+#### Character Engine - Enhanced
+- Advanced worldview with knowledge graph integration
+- Context-aware response generation with memory
+- Expanded emotion classification (10+ emotions)
+- Multi-turn conversation support
+
+#### Animation System - Enhanced
+- Dynamic animation blending based on emotion intensity
+- Support for layered animations (base + gesture + expression)
+- Lip-sync animation based on audio
+- Background environment options
+
+#### Voice Synthesis - Enhanced
+- Advanced voice customization with emotion modulation
+- Multiple voice profiles per character for different contexts
+- Real-time voice effects processing
+- Support for singing and special vocal performances
+
+#### Streaming Integration - Enhanced
+- Automated OBS control via API
+- Scene transitions based on interaction context
+- Overlay system for displaying Super Chat information
+- Stream health monitoring and automatic recovery
+
+#### Analytics - Enhanced
+- Advanced interaction analysis with sentiment tracking
+- Performance comparison across characters and time periods
+- Audience demographic insights
+- Revenue optimization recommendations
+
+### Phase 3: Scaling and Optimization
+
+#### Multi-Character Support
+- Concurrent stream management for multiple characters
+- Character switching capabilities within streams
+- Cross-character referencing and shared worldbuilding
+- Character marketplace or template system
+
+#### Multilingual Capabilities
+- Support for processing messages in multiple languages
+- Multilingual voice synthesis
+- Cultural context adaptation for global audiences
+- Language-specific animation and gesture considerations
+
+#### Performance Optimization
+- Caching system for frequent responses
+- Distributed processing for handling high-volume interactions
+- Predictive loading of animations and responses
+- Fallback systems for handling service disruptions
+
+#### Advanced Analytics and AI
+- Predictive audience engagement modeling
+- Automated character improvement recommendations
+- Content strategy insights based on performance data
+- A/B testing framework for character optimization
+
+#### Monetization Enhancements
+- Expanded Super Chat integration with tiered responses
+- Virtual merchandise integration
+- Sponsor integration capabilities
+- Premium character features
+
+## Logical Dependency Chain
+
+### Foundation Layer (Must be built first)
+1. **Supabase and Vercel Infrastructure Setup**
+   - Database schema implementation
+   - Authentication system configuration
+   - Storage buckets for assets
+   - Deployment pipelines
+
+2. **Basic Admin Dashboard**
+   - Authentication flow
+   - Simple character CRUD operations
+   - Basic configuration interface
+
+3. **Character Response Engine**
+   - LangChain integration
+   - Simple prompt management
+   - Basic response generation flow
+
+### Core Functional Layer
+4. **Animation System Basics**
+   - Character asset management
+   - Simple animation state machine
+   - Browser-based rendering
+
+5. **Voice Synthesis Integration**
+   - TTS service connection
+   - Basic voice profile management
+   - Audio output handling
+
+6. **OBS Integration**
+   - Browser source setup
+   - Basic scene configuration
+   - Audio routing
+
+### Interaction Layer
+7. **TikTok Live Integration**
+   - Super Chat message capture
+   - User identification
+   - Basic interaction flow
+
+8. **End-to-End Testing System**
+   - Manual testing interface
+   - Performance benchmarking
+   - Quality assurance tools
+
+### Enhancement Layer
+9. **Advanced Character Engine**
+   - Expanded worldview capabilities
+   - Emotion classification refinement
+   - Context awareness
+
+10. **Animation Enhancements**
+    - Dynamic expression system
+    - Transition improvements
+    - Lip-sync implementation
+
+11. **Analytics Foundation**
+    - Data collection system
+    - Basic metrics dashboard
+    - Performance tracking
+
+### Scaling Layer
+12. **Multi-Character Support**
+    - Concurrent stream handling
+    - Character switching mechanics
+    - Shared resources management
+
+13. **24/7 Operation Capabilities**
+    - Monitoring and alerting
+    - Automatic recovery systems
+    - Performance optimization
+
+14. **Multilingual Support**
+    - Language detection
+    - Translation integration
+    - Cultural adaptation
+
+### Optimization Layer
+15. **Advanced Analytics**
+    - In-depth performance analysis
+    - Audience insights
+    - Revenue optimization
+
+16. **System-wide Optimization**
+    - Caching strategies
+    - Load balancing
+    - Resource efficiency improvements
+
+## Risks and Mitigations
+
+### Technical Challenges
+
+#### Risk: Real-time Response Latency
+- **Description**: Delays in processing messages, generating responses, and creating animations could disrupt the live experience
+- **Mitigation**: 
+  - Implement buffering animations (thinking poses, transitions)
+  - Pre-generate common responses
+  - Optimize processing pipeline for efficiency
+  - Use edge computing for faster response times
+
+#### Risk: AI Response Quality
+- **Description**: Character responses may be inconsistent, off-tone, or inappropriate
+- **Mitigation**:
+  - Comprehensive prompt engineering and testing
+  - Implement content filtering and safety measures
+  - Create fallback responses for ambiguous situations
+  - Regular review and refinement of worldview data
+
+#### Risk: Stream Stability for 24/7 Operation
+- **Description**: Technical failures causing stream interruptions
+- **Mitigation**:
+  - Implement comprehensive monitoring and alerting
+  - Develop automatic recovery procedures
+  - Create redundant systems for critical components
+  - Schedule maintenance windows with placeholder content
+
+#### Risk: TikTok API Limitations
+- **Description**: Potential restrictions or changes to TikTok Live API
+- **Mitigation**:
+  - Build platform-agnostic core system
+  - Maintain relationships with platform representatives
+  - Stay updated on API documentation and changes
+  - Develop alternate platform integrations as backup
+
+### MVP Scope Challenges
+
+#### Risk: Feature Creep
+- **Description**: Expanding scope beyond what's achievable in one month
+- **Mitigation**:
+  - Strictly prioritize features based on MVP requirements
+  - Implement time-boxing for development phases
+  - Regular scope review meetings
+  - Clear definition of post-MVP features
+
+#### Risk: Over-engineering
+- **Description**: Building complex systems that aren't necessary for MVP
+- **Mitigation**:
+  - Focus on functional simplicity over technical elegance
+  - Use existing solutions where possible
+  - Defer optimization until after core functionality works
+  - Regular technical debt assessment
+
+#### Risk: Animation Quality Expectations
+- **Description**: Gap between expected and achievable animation quality within timeframe
+- **Mitigation**:
+  - Start with limited but high-quality animation sets
+  - Focus on transitions and expressiveness over complexity
+  - Use stylized characters where simpler animations look intentional
+  - Set clear expectations with stakeholders
+
+### Resource Constraints
+
+#### Risk: LLM API Costs
+- **Description**: High costs from LLM API usage, especially at scale
+- **Mitigation**:
+  - Implement efficient prompt design
+  - Cache common responses
+  - Use smaller models for initial processing
+  - Implement tiered response system based on Super Chat value
+
+#### Risk: Streaming Hardware Requirements
+- **Description**: Need for reliable hardware to maintain 24/7 streams
+- **Mitigation**:
+  - Start with cloud-based virtual machines
+  - Implement load balancing across multiple instances
+  - Optimize resource usage through efficient rendering
+  - Consider managed streaming services for production
+
+#### Risk: Development Bandwidth
+- **Description**: Limited developer resources for the one-month timeline
+- **Mitigation**:
+  - Focus on modular architecture for parallel development
+  - Leverage existing libraries and tools where possible
+  - Prioritize core functionality over nice-to-have features
+  - Consider using low-code tools for admin interfaces
+
+## Appendix
+
+### Research Findings
+
+#### Virtual Character Trends
+- Growing audience engagement with virtual YouTubers and streamers
+- Preference for consistent personality traits and backstories
+- Higher engagement with characters that demonstrate emotional range
+- Positive reception to characters that acknowledge their virtual nature
+
+#### AI Interaction Patterns
+- Users prefer responses that feel personalized
+- Short response times (under 10 seconds) maintain engagement
+- Multi-modal responses (text, voice, animation) increase satisfaction
+- Humor and unexpected responses create memorable moments
+
+#### Streaming Platform Analysis
+- TikTok Live provides extensive reach but has technical limitations
+- Super Chat monetization effective for filtering high-value interactions
+- Different regional preferences for character styles and interactions
+- Platform-specific audience expectations and behavior patterns
+
+### Technical Specifications
+
+#### Animation Requirements
+- Minimum 5 base emotions (neutral, happy, sad, surprised, angry)
+- At least 3 variations per emotion
+- Transition animations between emotional states
+- Idle animations for waiting periods
+- File format: WebM or transparent PNG sequence
+- Resolution: 1080p minimum with alpha channel
+
+#### Voice Synthesis Parameters
+- Voice clarity rating: 8/10 minimum
+- Emotion modulation capability required
+- Support for at least 3 languages (initial phase)
+- Maximum generation time: 2 seconds per sentence
+- Audio format: 44.1kHz stereo MP3
+
+#### Performance Benchmarks
+- Response generation time: < 3 seconds
+- Animation transition time: < 0.5 seconds
+- Voice synthesis time: < 2 seconds per sentence
+- Stream uptime target: 99.5%
+- Concurrent viewers supported: 10,000+
+- Interactions per minute capacity: 20+
+
+#### Security Requirements
+- Admin authentication with MFA
+- Character asset protection with access controls
+- API rate limiting and monitoring
+- Content moderation for incoming messages
+- Compliance with platform Terms of Service
