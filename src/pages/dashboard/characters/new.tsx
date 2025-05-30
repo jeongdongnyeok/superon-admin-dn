@@ -54,13 +54,10 @@ export default function CharacterNewForm() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   // 필수 입력값 검증 (form 상태 반영)
-  const requiredFields = [
-    "name", "description", "perspective", "appearance", "country"
-  ];
   const requiredFilled = useMemo(() => {
-  const requiredFields = ["name", "description", "perspective", "appearance", "country"];
+  const requiredFields: (keyof CharactersFormState)[] = ["name", "description", "perspective", "appearance", "country"];
   return requiredFields.every(field => {
-    const value = form[field as keyof CharactersFormState];
+    const value = form[field];
     return typeof value === 'string' ? value.trim().length > 0 : !!value;
   });
 }, [form]);
