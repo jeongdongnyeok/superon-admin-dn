@@ -109,8 +109,8 @@ export default function CharacterEditPage() {
         if (err && typeof err === "object" && "response" in err && err.response && typeof err.response === "object" && "data" in err.response) {
           const data = (err as { response?: { data?: unknown } }).response?.data;
           if (typeof data === "string") errorMsg = data;
-          else if (data && typeof data === "object" && "error" in data && typeof (data as any).error === "string") errorMsg = (data as any).error;
-          else if (data && typeof data === "object" && "detail" in data && typeof (data as any).detail === "string") errorMsg = (data as any).detail;
+          else if (data && typeof data === "object" && "error" in data && typeof (data as { error?: string }).error === "string") errorMsg = (data as { error?: string }).error ?? "";
+else if (data && typeof data === "object" && "detail" in data && typeof (data as { detail?: string }).detail === "string") errorMsg = (data as { details?: string }).details ?? "";
           else if (typeof data === "object") errorMsg = JSON.stringify(data);
         } else if (err instanceof Error && err.message) {
           errorMsg = err.message;

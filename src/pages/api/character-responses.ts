@@ -18,7 +18,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (error) throw error;
 
     // Format the responses for the frontend
-    const formattedResponses = (responses || []).map((response: Record<string, any>) => ({
+    type CharacterResponse = {
+  id: string;
+  message: string;
+  tags: string[];
+  status: string;
+  created_at?: string;
+};
+
+const formattedResponses = (responses || []).map((response: CharacterResponse) => ({
       id: response.id,
       message: response.message,
       tags: response.tags || [],
