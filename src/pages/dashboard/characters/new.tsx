@@ -57,13 +57,13 @@ export default function CharacterNewForm() {
   const requiredFields = [
     "name", "description", "perspective", "appearance", "country"
   ];
-  const requiredFilled = useMemo(() =>
-  requiredFields.every(field => {
+  const requiredFilled = useMemo(() => {
+  const requiredFields = ["name", "description", "perspective", "appearance", "country"];
+  return requiredFields.every(field => {
     const value = form[field as keyof CharactersFormState];
     return typeof value === 'string' ? value.trim().length > 0 : !!value;
-  }),
-  [form, requiredFields]
-);
+  });
+}, [form]);
 
   // imageUrl 동기화
   useEffect(() => {

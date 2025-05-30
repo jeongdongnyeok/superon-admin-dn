@@ -57,13 +57,13 @@ export default function CharacterEditPage() {
   const requiredFields = [
     "name", "description", "perspective", "appearance", "country"
   ];
-  const requiredFilled = useMemo(() =>
-  requiredFields.every(field => {
+  const requiredFilled = useMemo(() => {
+  const requiredFields = ["name", "description", "perspective", "appearance", "country"];
+  return requiredFields.every(field => {
     const value = form[field as keyof CharactersFormState];
     return typeof value === 'string' ? value.trim().length > 0 : !!value;
-  }),
-  [form, requiredFields]
-);
+  });
+}, [form]);
 
   // 파일 선택 핸들러 (생성페이지와 동일)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
