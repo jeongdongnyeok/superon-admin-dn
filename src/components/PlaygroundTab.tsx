@@ -131,7 +131,7 @@ export default function Playground() {
       setIsSessionActive(false);
       setSessionId(null);
       setPrompt('');
-    } catch (error) {
+    } catch (_) {
       setChatHistory(prev => [...prev, { type: 'info', content: '세션 종료 중 오류가 발생했습니다.' }]);
     }
   };
