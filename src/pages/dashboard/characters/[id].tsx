@@ -165,8 +165,8 @@ else if (data && typeof data === "object" && "detail" in data && typeof (data as
       if (err && typeof err === "object" && "response" in err && err.response && typeof err.response === "object" && "data" in err.response) {
         const data = (err as { response?: { data?: unknown } }).response?.data;
         if (typeof data === "string") msg = data;
-        else if (data && typeof data === "object" && "error" in data && typeof (data as any).error === "string") msg = (data as any).error;
-        else if (data && typeof data === "object" && "detail" in data && typeof (data as any).detail === "string") msg = (data as any).detail;
+        else if (data && typeof data === "object" && "error" in data && typeof (data as {error?: string}).error === "string") msg = (data as {error?: string}).error ?? "";
+        else if (data && typeof data === "object" && "detail" in data && typeof (data as {detail?: string}).detail === "string") msg = (data as {detail?: string}).detail ?? "";
         else if (typeof data === "object") msg = JSON.stringify(data);
       } else if (err instanceof Error && err.message) {
         msg = err.message;
