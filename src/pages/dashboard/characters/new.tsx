@@ -1,10 +1,8 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/router";
 import {
-  TextField, Button, Box, Typography, Chip, MenuItem, Select, InputLabel, FormHelperText, FormControl, SelectChangeEvent
+  TextField, Button, Box, Typography, MenuItem, Select, InputLabel, SelectChangeEvent
 } from "@mui/material";
-import { v4 as uuidv4 } from "uuid";
 import axios from "axios";
 
 type CharactersFormState = {
@@ -63,7 +61,7 @@ export default function CharacterNewForm() {
   ];
   const requiredFilled = useMemo(() =>
     requiredFields.every(field => {
-      const value = (form as any)[field];
+      const value = (form as unknown)[field];
       return typeof value === 'string' ? value.trim().length > 0 : !!value;
     })
   , [form]);
@@ -99,7 +97,7 @@ export default function CharacterNewForm() {
   };
 
   // 다중 Select용 핸들러 (MUI SelectChangeEvent)
-  const handleMultiSelectChange = (e: SelectChangeEvent<string[]>) => {
+  // Removed unused handleMultiSelectChange(e: SelectChangeEvent<string[]>) => {
     const name = e.target.name as string;
     const value = e.target.value;
     setForm((prev) => ({ ...prev, [name]: typeof value === 'string' ? value.split(',') : value }));
@@ -120,7 +118,7 @@ export default function CharacterNewForm() {
     }
 
     // 1. 캐릭터 DB insert
-    const profile: Record<string, any> = {};
+    const profile: Record<string, unknown> = {};
     ["age", "gender", "tone", "taboo_topic", "background", "relationships", "current_location", "examples", "perspective", "appearance", "country"].forEach(key => {
       const value = form[key as keyof CharactersFormState];
       if (Array.isArray(value) && value.length > 0) {
@@ -162,7 +160,7 @@ export default function CharacterNewForm() {
         // 3. image_url DB update (백엔드 API로 요청)
         try {
           await axios.patch(`/api/characters/${newId}`, { image_url: filePath }, { withCredentials: true });
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.error("API image_url update error:", err);
           setError("DB 업데이트 실패: " + (err?.response?.data?.error || err.message));
           return;
@@ -178,7 +176,7 @@ export default function CharacterNewForm() {
       } else {
         setError("캐릭터 생성은 성공했으나, id를 반환받지 못했습니다.");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       let msg = "캐릭터 생성에 실패했습니다.";
       const data = err?.response?.data;
       if (data) {
@@ -187,7 +185,7 @@ export default function CharacterNewForm() {
         } else if (typeof data.detail === "string") {
           msg = data.detail;
         } else if (Array.isArray(data)) {
-          msg = data.map((e: any) => `[${e.loc?.join('.')}] ${e.msg}`).join('\n');
+          msg = data.map((e: unknown) => `[${e.loc?.join('.')}] ${e.msg}`).join('\n');
         } else if (typeof data === "object") {
           msg = JSON.stringify(data);
         }

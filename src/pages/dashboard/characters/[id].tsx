@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/router";
 import axios from "axios";
 import { supabase } from "@/lib/supabaseClient";
-import CharacterImageUpload from "@/components/CharacterImageUpload";
+
 import {
   Box, Typography, Button, TextField, InputLabel, Select, MenuItem
 } from "@mui/material";
@@ -59,7 +59,7 @@ export default function CharacterEditPage() {
   ];
   const requiredFilled = useMemo(() =>
     requiredFields.every(field => {
-      const value = (form as any)[field];
+      const value = (form as unknown)[field];
       return typeof value === 'string' ? value.trim().length > 0 : !!value;
     })
   , [form]);
@@ -83,7 +83,7 @@ export default function CharacterEditPage() {
   };
 
   // 단일 Select용 핸들러 (MUI SelectChangeEvent)
-  const handleSelectChange = (e: any) => {
+  const handleSelectChange = (e: unknown) => {
     const name = e.target.name as string;
     const value = e.target.value;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -105,7 +105,7 @@ export default function CharacterEditPage() {
           ...data.profile,
         });
         setImageUrl(data.image_url || "");
-      } catch (err: any) {
+      } catch (err: unknown) {
         let errorMsg = "캐릭터 정보를 불러오지 못했습니다: " + (err?.response?.data?.error || err.message);
         if (err?.response?.data?.details) {
           errorMsg += " (상세: " + err.response.data.details + ")";
@@ -130,7 +130,7 @@ export default function CharacterEditPage() {
     }
   }, [imageUrl, router.query]);
 
-  const handleImageUpload = async (file: File) => {
+  // Removed unused handleImageUploadasync (file: File) => {
     const fileExt = file.name.split('.').pop();
     const filePath = `images/${id}.${fileExt}`;
     const { error: uploadError } = await supabase.storage
@@ -144,7 +144,7 @@ export default function CharacterEditPage() {
       await axios.patch("/api/characters", { id, image_url: filePath });
       setImageUrl(filePath);
       setSuccess("이미지 변경 완료!");
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError("이미지 URL 업데이트 실패: " + (err?.response?.data?.error || err.message));
     }
   };
@@ -153,9 +153,9 @@ export default function CharacterEditPage() {
     e.preventDefault();
     setError("");
     setSuccess("");
-    const profile: Record<string, any> = {};
+    const profile: Record<string, unknown> = {};
     ["age", "gender", "tone", "taboo_topic", "background", "relationships", "current_location", "examples", "perspective", "appearance", "country"].forEach(key => {
-      const value = (form as any)[key];
+      const value = (form as unknown)[key];
       if (Array.isArray(value) && value.length > 0) profile[key] = value;
       else if (typeof value === "string" && value.trim().length > 0) profile[key] = value;
     });
@@ -172,7 +172,7 @@ export default function CharacterEditPage() {
       setTimeout(() => {
         router.push("/dashboard?tab=character");
       }, 1000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError("캐릭터 수정 실패: " + (err?.response?.data?.error || err.message));
     }
   };

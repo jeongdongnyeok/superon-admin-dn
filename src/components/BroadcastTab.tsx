@@ -144,7 +144,7 @@ function BroadcastTab() {
     if (roomId) {
       try {
         await axios.post('/tiktok/stop', { unique_id: roomId });
-      } catch (error: unknown) {
+      } catch { // error intentionally ignored
         // Ignore error (already stopped, etc.)
       }
     }

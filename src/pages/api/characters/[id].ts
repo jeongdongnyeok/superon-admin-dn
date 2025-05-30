@@ -1,6 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
-import { supabase as clientSupabase } from '@/lib/supabaseClient';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { id } = req.query;
@@ -99,7 +98,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // name, description, country 등은 컬럼, profile은 JSONB로 분리
       const { name, description, country, profile } = characterData;
       // image_url은 별도 PATCH에서만 수정
-      const updatePayload: Record<string, any> = {};
+      const updatePayload: Record<string, unknown> = {};
       if (name !== undefined) updatePayload.name = name;
       if (description !== undefined) updatePayload.description = description;
       if (country !== undefined) updatePayload.country = country;
