@@ -17,8 +17,14 @@ type MotionFile = {
  * If tag is missing, empty, or whitespace, returns 'NULL'.
  * Otherwise, returns the tag as-is.
  */
-function normalizeTag(tag: string): 'neutral' | 'talking' | 'reaction' | 'NULL' {
-  return (typeof tag === 'string' && tag.trim() !== '') ? tag as 'neutral' | 'talking' | 'reaction' | 'NULL' : 'NULL';
+// tag: unknown -> string, but only allow known tags
+function normalizeTag(tag: unknown): 'neutral' | 'talking' | 'reaction' | 'NULL' {
+  if (typeof tag === 'string' && tag.trim() !== '') {
+    if (['neutral','talking','reaction','NULL'].includes(tag)) {
+      return tag as 'neutral' | 'talking' | 'reaction' | 'NULL';
+    }
+  }
+  return 'NULL';
 }
 
 
@@ -76,12 +82,13 @@ function BroadcastTab() {
     const response = await axios.get(`/backend/${selectedCharacterId}/motion/list.json`);
     // Use tag from JSON; if missing/empty/whitespace, set to 'NULL' for display
     // This is the only place tag normalization should occur
-    const filesWithTag = (response.data.files || []).map((f: any) => ({
+    type RawMotionFile = { name: string; path: string; url: string; tag?: unknown };
+    const filesWithTag = (response.data.files || []).map((f: RawMotionFile) => ({
       ...f,
       tag: normalizeTag(f.tag),
     }));
     setMotionFiles(filesWithTag);
-  } catch (err) {
+  } catch (err: unknown) {
     let msg = '모션 파일을 불러오는 중 오류가 발생했습니다.';
     if (axios.isAxiosError(err) && err.response?.data?.message) {
       msg = err.response.data.message;
@@ -113,8 +120,10 @@ function BroadcastTab() {
       setCurrentSessionId(data.id);
       setMotionByTag('neutral');
       setShowRoomIdInput(true); // 방송 시작 후 room id 입력창 자동 노출
-    } catch (err: any) {
-      setError(err.message || '방송 시작에 실패했습니다.');
+    } catch (err: unknown) {
+      let msg = '방송 시작에 실패했습니다.';
+      if (err instanceof Error) msg = err.message;
+      setError(msg);
     }
   };
 
@@ -135,12 +144,14 @@ function BroadcastTab() {
     if (roomId) {
       try {
         await axios.post('/tiktok/stop', { unique_id: roomId });
-      } catch (e) {
-        // 실패해도 무시 (이미 종료된 경우 등)
+      } catch (error: unknown) {
+        // Ignore error (already stopped, etc.)
       }
     }
-  } catch (err: any) {
-    setError(err.message || '방송 종료에 실패했습니다.');
+  } catch (err: unknown) {
+    let msg = '방송 종료에 실패했습니다.';
+    if (err instanceof Error) msg = err.message;
+    setError(msg);
   } finally {
     // TikTokLive 소켓 종료 및 roomId 초기화 (항상)
     setSessionStatus('end');
@@ -152,20 +163,16 @@ function BroadcastTab() {
   }
 };
 
-  const handleVideoError = () => {
-    // 비디오 에러 처리 로직 구현 필요
-  };
+  // 비디오/오디오 에러 핸들러 (미사용, 삭제)
 
-  const handleAudioError = () => {
-    // 오디오 에러 처리 로직 구현 필요
-  };
 
   const handleMotionSelect = (url: string) => {
     if (selectedMotion !== url) setSelectedMotion(url);
   };
 
   const setMotionByTag = (tag: string) => {
-  const found = motionFiles.find(f => f.tag === (tag as 'neutral' | 'talking' | 'reaction' | 'NULL'));
+  const literalTag = normalizeTag(tag);
+  const found = motionFiles.find(f => f.tag === literalTag);
   if (found && selectedMotion !== found.url) setSelectedMotion(found.url);
 };
 
@@ -179,8 +186,13 @@ function BroadcastTab() {
       setRoomIdStatus(res.data?.message || "Room ID 등록 및 TikTok 연동 성공");
       setShowRoomIdInput(false);
       setRoomIdInput("");
-    } catch (err: any) {
-      const msg = err.response?.data?.message || "Room ID 등록 또는 TikTok 연동에 실패했습니다.";
+    } catch (err: unknown) {
+      let msg = "Room ID 등록 또는 TikTok 연동에 실패했습니다.";
+      if (axios.isAxiosError(err) && err.response?.data?.message) {
+        msg = err.response.data.message;
+      } else if (err instanceof Error) {
+        msg = err.message;
+      }
       alert(msg);
       setRoomIdInput("");
       setRoomIdConfirmed(false);
@@ -292,7 +304,7 @@ const renderRoomIdInfo = () => (
             style={{ width: 720, maxWidth: '100%' }}
             className="h-full"
             src={selectedMotion || undefined}
-            onError={handleVideoError}
+
             autoPlay
             loop
             controls
@@ -300,7 +312,7 @@ const renderRoomIdInfo = () => (
           <audio
             ref={audioRef}
             className="w-full h-full"
-            onError={handleAudioError}
+
             autoPlay
             controls
           />
