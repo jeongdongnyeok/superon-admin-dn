@@ -54,16 +54,13 @@ export default function CharacterEditPage() {
   const [previewUrl, setPreviewUrl] = useState("");
 
   // 필수 입력값 검증 (생성페이지와 동일)
-  const requiredFields = [
-    "name", "description", "perspective", "appearance", "country"
-  ];
   const requiredFilled = useMemo(() => {
-  const requiredFields = ["name", "description", "perspective", "appearance", "country"];
-  return requiredFields.every(field => {
-    const value = form[field as keyof CharactersFormState];
-    return typeof value === 'string' ? value.trim().length > 0 : !!value;
-  });
-}, [form]);
+    const requiredFields: (keyof CharactersFormState)[] = ["name", "description", "perspective", "appearance", "country"];
+    return requiredFields.every(field => {
+      const value = form[field];
+      return typeof value === 'string' ? value.trim().length > 0 : !!value;
+    });
+  }, [form]);
 
   // 파일 선택 핸들러 (생성페이지와 동일)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -110,10 +107,10 @@ export default function CharacterEditPage() {
       } catch (err: unknown) {
         let errorMsg = "캐릭터 정보를 불러오지 못했습니다.";
         if (err && typeof err === "object" && "response" in err && err.response && typeof err.response === "object" && "data" in err.response) {
-          const data = (err as any).response.data;
+          const data = (err as { response?: { data?: unknown } }).response?.data;
           if (typeof data === "string") errorMsg = data;
-          else if (typeof data?.error === "string") errorMsg = data.error;
-          else if (typeof data?.detail === "string") errorMsg = data.detail;
+          else if (data && typeof data === "object" && "error" in data && typeof (data as any).error === "string") errorMsg = (data as any).error;
+          else if (data && typeof data === "object" && "detail" in data && typeof (data as any).detail === "string") errorMsg = (data as any).detail;
           else if (typeof data === "object") errorMsg = JSON.stringify(data);
         } else if (err instanceof Error && err.message) {
           errorMsg = err.message;
@@ -166,10 +163,10 @@ export default function CharacterEditPage() {
     } catch (err: unknown) {
       let msg = "캐릭터 수정 실패";
       if (err && typeof err === "object" && "response" in err && err.response && typeof err.response === "object" && "data" in err.response) {
-        const data = (err as any).response.data;
+        const data = (err as { response?: { data?: unknown } }).response?.data;
         if (typeof data === "string") msg = data;
-        else if (typeof data?.error === "string") msg = data.error;
-        else if (typeof data?.detail === "string") msg = data.detail;
+        else if (data && typeof data === "object" && "error" in data && typeof (data as any).error === "string") msg = (data as any).error;
+        else if (data && typeof data === "object" && "detail" in data && typeof (data as any).detail === "string") msg = (data as any).detail;
         else if (typeof data === "object") msg = JSON.stringify(data);
       } else if (err instanceof Error && err.message) {
         msg = err.message;
