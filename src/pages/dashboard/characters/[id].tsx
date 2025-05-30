@@ -4,7 +4,7 @@ import axios from "axios";
 import { supabase } from "@/lib/supabaseClient";
 
 import {
-  Box, Typography, Button, TextField, InputLabel, Select, MenuItem
+  Box, Typography, Button, TextField, InputLabel, Select, MenuItem, SelectChangeEvent
 } from "@mui/material";
 
 type CharactersFormState = {
@@ -58,11 +58,12 @@ export default function CharacterEditPage() {
     "name", "description", "perspective", "appearance", "country"
   ];
   const requiredFilled = useMemo(() =>
-    requiredFields.every(field => {
-      const value = (form as unknown)[field];
-      return typeof value === 'string' ? value.trim().length > 0 : !!value;
-    })
-  , [form]);
+  requiredFields.every(field => {
+    const value = form[field as keyof CharactersFormState];
+    return typeof value === 'string' ? value.trim().length > 0 : !!value;
+  }),
+  [form, requiredFields]
+);
 
   // 파일 선택 핸들러 (생성페이지와 동일)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -83,11 +84,12 @@ export default function CharacterEditPage() {
   };
 
   // 단일 Select용 핸들러 (MUI SelectChangeEvent)
-  const handleSelectChange = (e: unknown) => {
+  const handleSelectChange = (e: SelectChangeEvent<string>) => {
     const name = e.target.name as string;
     const value = e.target.value;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
+
 
 
 
@@ -106,9 +108,15 @@ export default function CharacterEditPage() {
         });
         setImageUrl(data.image_url || "");
       } catch (err: unknown) {
-        let errorMsg = "캐릭터 정보를 불러오지 못했습니다: " + (err?.response?.data?.error || err.message);
-        if (err?.response?.data?.details) {
-          errorMsg += " (상세: " + err.response.data.details + ")";
+        let errorMsg = "캐릭터 정보를 불러오지 못했습니다.";
+        if (err && typeof err === "object" && "response" in err && err.response && typeof err.response === "object" && "data" in err.response) {
+          const data = (err as any).response.data;
+          if (typeof data === "string") errorMsg = data;
+          else if (typeof data?.error === "string") errorMsg = data.error;
+          else if (typeof data?.detail === "string") errorMsg = data.detail;
+          else if (typeof data === "object") errorMsg = JSON.stringify(data);
+        } else if (err instanceof Error && err.message) {
+          errorMsg = err.message;
         }
         setError(errorMsg);
       }
@@ -130,24 +138,7 @@ export default function CharacterEditPage() {
     }
   }, [imageUrl, router.query]);
 
-  // Removed unused handleImageUploadasync (file: File) => {
-    const fileExt = file.name.split('.').pop();
-    const filePath = `images/${id}.${fileExt}`;
-    const { error: uploadError } = await supabase.storage
-      .from("character-assets")
-      .upload(filePath, file, { upsert: true });
-    if (uploadError) {
-      setError("이미지 업로드 실패: " + uploadError.message);
-      return;
-    }
-    try {
-      await axios.patch("/api/characters", { id, image_url: filePath });
-      setImageUrl(filePath);
-      setSuccess("이미지 변경 완료!");
-    } catch (err: unknown) {
-      setError("이미지 URL 업데이트 실패: " + (err?.response?.data?.error || err.message));
-    }
-  };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,7 +146,7 @@ export default function CharacterEditPage() {
     setSuccess("");
     const profile: Record<string, unknown> = {};
     ["age", "gender", "tone", "taboo_topic", "background", "relationships", "current_location", "examples", "perspective", "appearance", "country"].forEach(key => {
-      const value = (form as unknown)[key];
+      const value = form[key as keyof CharactersFormState];
       if (Array.isArray(value) && value.length > 0) profile[key] = value;
       else if (typeof value === "string" && value.trim().length > 0) profile[key] = value;
     });
@@ -173,7 +164,17 @@ export default function CharacterEditPage() {
         router.push("/dashboard?tab=character");
       }, 1000);
     } catch (err: unknown) {
-      setError("캐릭터 수정 실패: " + (err?.response?.data?.error || err.message));
+      let msg = "캐릭터 수정 실패";
+      if (err && typeof err === "object" && "response" in err && err.response && typeof err.response === "object" && "data" in err.response) {
+        const data = (err as any).response.data;
+        if (typeof data === "string") msg = data;
+        else if (typeof data?.error === "string") msg = data.error;
+        else if (typeof data?.detail === "string") msg = data.detail;
+        else if (typeof data === "object") msg = JSON.stringify(data);
+      } else if (err instanceof Error && err.message) {
+        msg = err.message;
+      }
+      setError("캐릭터 수정 실패: " + msg);
     }
   };
 
@@ -203,9 +204,6 @@ export default function CharacterEditPage() {
       </Box>
       {/* 필수 입력 */}
       <TextField label="이름" name="name" value={form.name ?? ""} onChange={handleChange} fullWidth required margin="normal" InputLabelProps={{ required: true, sx: { "& .MuiFormLabel-asterisk": { color: "red" } } }} />
-      <TextField label="요약 설명" name="description" value={form.description ?? ""} onChange={handleChange} fullWidth required margin="normal" InputLabelProps={{ required: true, sx: { "& .MuiFormLabel-asterisk": { color: "red" } } }} />
-      <TextField label="관점/성격" name="perspective" value={form.perspective ?? ""} onChange={handleChange} fullWidth required margin="normal" InputLabelProps={{ required: true, sx: { "& .MuiFormLabel-asterisk": { color: "red" } } }} multiline minRows={3} />
-      <TextField label="외형" name="appearance" value={form.appearance ?? ""} onChange={handleChange} fullWidth required margin="normal" InputLabelProps={{ required: true, sx: { "& .MuiFormLabel-asterisk": { color: "red" } } }} />
       <InputLabel id="country-label" sx={{ mt: 2 }}>언어국가 <span style={{ color: 'red' }}>*</span></InputLabel>
       <Select
         labelId="country-label"

@@ -4,6 +4,8 @@ import {
   TextField, Button, Box, Typography, MenuItem, Select, InputLabel, SelectChangeEvent
 } from "@mui/material";
 import axios from "axios";
+import { supabase } from "../../../lib/supabaseClient";
+import type { Session } from "@supabase/supabase-js";
 
 type CharactersFormState = {
   name: string;
@@ -41,11 +43,7 @@ const initialState: CharactersFormState = {
   examples: [],
 };
 
-import { useEffect } from "react";
-import { supabase } from "../../../lib/supabaseClient";
-import type { Session } from "@supabase/supabase-js";
 
-import { useMemo } from "react";
 
 export default function CharacterNewForm() {
   const router = useRouter();
@@ -60,11 +58,12 @@ export default function CharacterNewForm() {
     "name", "description", "perspective", "appearance", "country"
   ];
   const requiredFilled = useMemo(() =>
-    requiredFields.every(field => {
-      const value = (form as unknown)[field];
-      return typeof value === 'string' ? value.trim().length > 0 : !!value;
-    })
-  , [form]);
+  requiredFields.every(field => {
+    const value = form[field as keyof CharactersFormState];
+    return typeof value === 'string' ? value.trim().length > 0 : !!value;
+  }),
+  [form, requiredFields]
+);
 
   // imageUrl 동기화
   useEffect(() => {
@@ -94,13 +93,6 @@ export default function CharacterNewForm() {
     const name = e.target.name as string;
     const value = e.target.value;
     setForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  // 다중 Select용 핸들러 (MUI SelectChangeEvent)
-  // Removed unused handleMultiSelectChange(e: SelectChangeEvent<string[]>) => {
-    const name = e.target.name as string;
-    const value = e.target.value;
-    setForm((prev) => ({ ...prev, [name]: typeof value === 'string' ? value.split(',') : value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -162,7 +154,17 @@ export default function CharacterNewForm() {
           await axios.patch(`/api/characters/${newId}`, { image_url: filePath }, { withCredentials: true });
         } catch (err: unknown) {
           console.error("API image_url update error:", err);
-          setError("DB 업데이트 실패: " + (err?.response?.data?.error || err.message));
+          let msg = "DB 업데이트 실패";
+          if (err instanceof Error) {
+            msg = err.message;
+          } else if (axios.isAxiosError(err)) {
+            const data = err.response?.data;
+            if (typeof data === "string") msg = data;
+            else if (typeof data?.error === "string") msg = data.error;
+            else if (typeof data?.detail === "string") msg = data.detail;
+            else if (typeof data === "object") msg = JSON.stringify(data);
+          }
+          setError("DB 업데이트 실패: " + msg);
           return;
         }
         setSuccess("캐릭터와 이미지가 성공적으로 저장되었습니다!");
@@ -178,17 +180,14 @@ export default function CharacterNewForm() {
       }
     } catch (err: unknown) {
       let msg = "캐릭터 생성에 실패했습니다.";
-      const data = err?.response?.data;
-      if (data) {
-        if (typeof data === "string") {
-          msg = data;
-        } else if (typeof data.detail === "string") {
-          msg = data.detail;
-        } else if (Array.isArray(data)) {
-          msg = data.map((e: unknown) => `[${e.loc?.join('.')}] ${e.msg}`).join('\n');
-        } else if (typeof data === "object") {
-          msg = JSON.stringify(data);
-        }
+      if (err instanceof Error) {
+        msg = err.message;
+      } else if (axios.isAxiosError(err)) {
+        const data = err.response?.data;
+        if (typeof data === "string") msg = data;
+        else if (typeof data?.error === "string") msg = data.error;
+        else if (typeof data?.detail === "string") msg = data.detail;
+        else if (typeof data === "object") msg = JSON.stringify(data);
       }
       setError(msg);
     }
@@ -225,20 +224,21 @@ export default function CharacterNewForm() {
         </Button>
         {imageUrl && (
           <Box sx={{ mt: 2 }}>
+            {/* Next.js Image 권장, 경고만 출력 */}
             <img src={imageUrl} alt="미리보기" style={{ maxWidth: 180, borderRadius: 8 }} />
           </Box>
         )}
       </Box>
       {/* 필수 입력 */}
-      <TextField label="이름" name="name" value={form.name} onChange={handleChange} fullWidth required margin="normal" InputLabelProps={{ required: true, sx: { "& .MuiFormLabel-asterisk": { color: "red" } } }} />
-      <TextField label="요약 설명" name="description" value={form.description} onChange={handleChange} fullWidth required margin="normal" InputLabelProps={{ required: true, sx: { "& .MuiFormLabel-asterisk": { color: "red" } } }} />
-      <TextField label="관점/성격" name="perspective" value={form.perspective} onChange={handleChange} fullWidth required margin="normal" InputLabelProps={{ required: true, sx: { "& .MuiFormLabel-asterisk": { color: "red" } } }} multiline minRows={3} />
-      <TextField label="외형" name="appearance" value={form.appearance} onChange={handleChange} fullWidth required margin="normal" InputLabelProps={{ required: true, sx: { "& .MuiFormLabel-asterisk": { color: "red" } } }} />
+      <TextField label="이름" name="name" value={form.name ?? ""} onChange={handleChange} fullWidth required margin="normal" InputLabelProps={{ required: true, sx: { "& .MuiFormLabel-asterisk": { color: "red" } } }} />
+      <TextField label="요약 설명" name="description" value={form.description ?? ""} onChange={handleChange} fullWidth required margin="normal" InputLabelProps={{ required: true, sx: { "& .MuiFormLabel-asterisk": { color: "red" } } }} />
+      <TextField label="관점/성격" name="perspective" value={form.perspective ?? ""} onChange={handleChange} fullWidth required margin="normal" InputLabelProps={{ required: true, sx: { "& .MuiFormLabel-asterisk": { color: "red" } } }} multiline minRows={3} />
+      <TextField label="외형" name="appearance" value={form.appearance ?? ""} onChange={handleChange} fullWidth required margin="normal" InputLabelProps={{ required: true, sx: { "& .MuiFormLabel-asterisk": { color: "red" } } }} />
       <InputLabel id="country-label" sx={{ mt: 2 }}>언어국가 <span style={{ color: 'red' }}>*</span></InputLabel>
       <Select
         labelId="country-label"
         name="country"
-        value={form.country}
+        value={form.country ?? ""}
         onChange={handleSelectChange}
         fullWidth
         required
@@ -250,20 +250,18 @@ export default function CharacterNewForm() {
         <MenuItem value="english">english</MenuItem>
       </Select>
       <Typography variant="h6" sx={{ mt: 3 }}>선택 입력</Typography>
-      <TextField label="나이" name="age" type="number" value={form.age} onChange={handleChange} fullWidth margin="normal" />
-      <TextField label="직업" name="job" value={form.job} onChange={handleChange} fullWidth margin="normal" />
-      <TextField label="성별" name="gender" value={form.gender} onChange={handleChange} fullWidth margin="normal" />
-      <TextField label="감정적 톤" name="tone" value={form.tone} onChange={handleChange} fullWidth margin="normal" />
-      <TextField label="금기 주제" name="taboo_topic" value={form.taboo_topic} onChange={handleChange} fullWidth margin="normal" />
-      <TextField label="배경" name="background" value={form.background} onChange={handleChange} fullWidth margin="normal" />
-      <TextField label="주요 관계" name="relationships" value={form.relationships} onChange={handleChange} fullWidth margin="normal" />
-      <TextField label="현재 위치" name="current_location" value={form.current_location} onChange={handleChange} fullWidth margin="normal" />
-     
-     
+      <TextField label="나이" name="age" type="number" value={form.age ?? ""} onChange={handleChange} fullWidth margin="normal" />
+      <TextField label="직업" name="job" value={form.job ?? ""} onChange={handleChange} fullWidth margin="normal" />
+      <TextField label="성별" name="gender" value={form.gender ?? ""} onChange={handleChange} fullWidth margin="normal" />
+      <TextField label="감정적 톤" name="tone" value={form.tone ?? ""} onChange={handleChange} fullWidth margin="normal" />
+      <TextField label="금기 주제" name="taboo_topic" value={form.taboo_topic ?? ""} onChange={handleChange} fullWidth margin="normal" />
+      <TextField label="배경" name="background" value={form.background ?? ""} onChange={handleChange} fullWidth margin="normal" />
+      <TextField label="주요 관계" name="relationships" value={form.relationships ?? ""} onChange={handleChange} fullWidth margin="normal" />
+      <TextField label="현재 위치" name="current_location" value={form.current_location ?? ""} onChange={handleChange} fullWidth margin="normal" />
 
-    {/* 에러/성공 메시지 */}
-    {error && <Typography color="error" sx={{ mt: 2 }}>{error}</Typography>}
-    {success && <Typography color="primary" sx={{ mt: 2 }}>{success}</Typography>}
+      {/* 에러/성공 메시지 */}
+      {error && <Typography color="error" sx={{ mt: 2 }}>{error}</Typography>}
+      {success && <Typography color="primary" sx={{ mt: 2 }}>{success}</Typography>}
 
     <Button 
       type="submit" 
