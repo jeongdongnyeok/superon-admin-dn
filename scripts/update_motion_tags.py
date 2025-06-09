@@ -1,7 +1,7 @@
 import json
 import os
 
-json_path = os.path.join(os.path.dirname(__file__), '../public/backend/65d3ca8d-3fa2-47a8-b736-8a95d625b11a/motion/list.json')
+json_path = os.path.join(os.path.dirname(__file__), '../backend/65d3ca8d-3fa2-47a8-b736-8a95d625b11a/motion/list.json')
 
 with open(json_path, 'r', encoding='utf-8') as f:
     data = json.load(f)

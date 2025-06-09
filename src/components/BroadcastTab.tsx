@@ -1,60 +1,47 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect, ChangeEvent } from 'react';
 import axios from 'axios';
-import { supabase } from '../lib/supabaseClient';
+import { supabase } from '@/lib/supabaseClient';
+import { Character, MotionFile } from './broadcast/shared/types';
+import RoomIdModal from './RoomIdModal';
+import StatusMessage from './StatusMessage';
+import SessionControls from './SessionControls';
 
-// MotionFile now allows 'NULL' as a display-only tag value for clarity
-// All tag normalization is handled via normalizeTag helper below
+const BroadcastTab: React.FC = () => {
+  // Utility for tag normalization
+  const normalizeTag = (tag: string) => tag.trim().toLowerCase();
 
-type MotionFile = {
-  name: string;
-  path: string;
-  url: string;
-  tag: 'neutral' | 'talking' | 'reaction' | 'NULL'; // 'NULL' for display if missing/empty
-};
-
-/**
- * Normalizes a tag value for display.
- * If tag is missing, empty, or whitespace, returns 'NULL'.
- * Otherwise, returns the tag as-is.
- */
-// tag: unknown -> string, but only allow known tags
-function normalizeTag(tag: unknown): 'neutral' | 'talking' | 'reaction' | 'NULL' {
-  if (typeof tag === 'string' && tag.trim() !== '') {
-    if (['neutral','talking','reaction','NULL'].includes(tag)) {
-      return tag as 'neutral' | 'talking' | 'reaction' | 'NULL';
+  // Set motion by tag
+  const setMotionByTag = (tag: string) => {
+    const normTag = normalizeTag(tag);
+    const file = motionFiles.find(f => normalizeTag(f.tag) === normTag);
+    if (file) {
+      setSelectedMotion(file.url);
     }
-  }
-  return 'NULL';
-}
+    setIsGiftMotion(normTag !== 'neutral');
+  };
 
-
-
-
-type Character = {
-  id: string;
-  name: string;
-  description: string;
-  image_url: string | null;
-  status: string;
-};
-
-function BroadcastTab() {
-  // 상태 변수 및 ref 선언 (중복 없이)
+  // Character selection
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string>('');
+  // Session and Room ID
   const [sessionStatus, setSessionStatus] = useState<'idle' | 'start' | 'end'>('idle');
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [roomId, setRoomId] = useState<string>('');
+  const [roomIdInput, setRoomIdInput] = useState<string>('');
+  const [roomIdStatus, setRoomIdStatus] = useState<string>('');
+  // Error handling
   const [error, setError] = useState<string | null>(null);
-  const [roomId, setRoomId] = useState<string>("");
-  const [showRoomIdInput, setShowRoomIdInput] = useState<boolean>(false);
-  const [roomIdStatus, setRoomIdStatus] = useState<string>("");
-  const [roomIdInput, setRoomIdInput] = useState<string>("");
-  const [roomIdConfirmed, setRoomIdConfirmed] = useState<boolean>(false);
-  const [characters, setCharacters] = useState<Character[]>([]);
-  const [selectedCharacterId, setSelectedCharacterId] = useState<string>("");
+  // Motion files
   const [motionFiles, setMotionFiles] = useState<MotionFile[]>([]);
   const [selectedMotion, setSelectedMotion] = useState<string>('');
+  const [isGiftMotion, setIsGiftMotion] = useState<boolean>(false);
+  const [showRoomIdInput, setShowRoomIdInput] = useState<boolean>(false);
+  const giftQueue = useRef<{ motion_tag: string }[]>([]);
+  const isPlayingGift = useRef<boolean>(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
+  // Fetch character list on mount
   useEffect(() => {
     const fetchCharacters = async () => {
       try {
@@ -64,41 +51,84 @@ function BroadcastTab() {
         let msg = '캐릭터 목록을 불러오는 중 오류가 발생했습니다.';
         if (axios.isAxiosError(err) && err.response?.data?.message) {
           msg = err.response.data.message;
+        } else if (err instanceof Error) {
+          msg = err.message;
         }
-        console.error(msg);
+        setError(msg);
       }
     };
     fetchCharacters();
   }, []);
 
+  // Fetch motion files when character changes
   useEffect(() => {
-    if (!selectedCharacterId) {
-      setMotionFiles([]);
-      setSelectedMotion("");
-      return;
-    }
     const fetchMotionFiles = async () => {
-  try {
-    const response = await axios.get(`/backend/${selectedCharacterId}/motion/list.json`);
-    // Use tag from JSON; if missing/empty/whitespace, set to 'NULL' for display
-    // This is the only place tag normalization should occur
-    type RawMotionFile = { name: string; path: string; url: string; tag?: unknown };
-    const filesWithTag = (response.data.files || []).map((f: RawMotionFile) => ({
-      ...f,
-      tag: normalizeTag(f.tag),
-    }));
-    setMotionFiles(filesWithTag);
-  } catch (err: unknown) {
-    let msg = '모션 파일을 불러오는 중 오류가 발생했습니다.';
-    if (axios.isAxiosError(err) && err.response?.data?.message) {
-      msg = err.response.data.message;
-    }
-    console.error(msg);
-    setMotionFiles([]);
-  }
-};
+      if (!selectedCharacterId) {
+        setMotionFiles([]);
+        setSelectedMotion('');
+        return;
+      }
+      try {
+        const response = await axios.get(`/backend/${selectedCharacterId}/motion/list.json`);
+        setMotionFiles(response.data.files || []);
+        // Auto-select the first motion file if available
+        if (response.data.files?.length > 0) {
+          setSelectedMotion(response.data.files[0].url);
+        }
+      } catch (err) {
+        setMotionFiles([]);
+        setSelectedMotion('');
+        let msg = '모션 파일을 불러오는 중 오류가 발생했습니다.';
+        if (axios.isAxiosError(err) && err.response?.data?.message) {
+          msg = err.response.data.message;
+        } else if (err instanceof Error) {
+          msg = err.message;
+        }
+        setError(msg);
+      }
+    };
     fetchMotionFiles();
   }, [selectedCharacterId]);
+
+  // Handler to end broadcast
+  const handleEndBroadcast = async () => {
+    try {
+      if (currentSessionId) {
+        await axios.post('/tiktok/stop', { unique_id: roomId });
+      }
+      setCurrentSessionId(null);
+      setShowRoomIdInput(false);
+      setRoomId('');
+      setRoomIdInput('');
+    } catch (err) {
+      let msg = '방송 종료 중 오류가 발생했습니다.';
+      if (axios.isAxiosError(err) && err.response?.data?.message) {
+        msg = err.response.data.message;
+      } else if (err instanceof Error) {
+        msg = err.message;
+      }
+      setError(msg);
+    }
+  };
+
+  // Handler for motion file selection
+  const handleMotionSelect = (motionUrl: string) => {
+    setSelectedMotion(motionUrl);
+    if (videoRef.current) {
+      videoRef.current.load();
+      videoRef.current.play().catch(() => {});
+    }
+  };
+
+  // Play next gift motion (dummy for now)
+  const playNextGift = () => {
+    if (giftQueue.current.length > 0) {
+      const next = giftQueue.current.shift();
+      if (next) setMotionByTag(next.motion_tag);
+    } else {
+      setMotionByTag('neutral');
+    }
+  };
 
   const handleStartBroadcast = async () => {
     setError(null);
@@ -116,73 +146,28 @@ function BroadcastTab() {
         .select()
         .single();
       if (insertError) throw insertError;
-      setSessionStatus('start');
       setCurrentSessionId(data.id);
       setMotionByTag('neutral');
       setShowRoomIdInput(true); // 방송 시작 후 room id 입력창 자동 노출
     } catch (err: unknown) {
       let msg = '방송 시작에 실패했습니다.';
-      if (err instanceof Error) msg = err.message;
+      if (axios.isAxiosError(err) && err.response?.data?.message) {
+        msg = err.response.data.message;
+      } else if (err instanceof Error) {
+        msg = err.message;
+      }
       setError(msg);
     }
   };
-
-  const handleEndBroadcast = async () => {
-  setError(null);
-  if (!currentSessionId) {
-    setError('진행 중인 방송 세션이 없습니다.');
-    return;
-  }
-  try {
-    const { error: updateError } = await supabase
-      .from('live_sessions')
-      .update({
-        ended_at: new Date().toISOString(),
-      })
-      .eq('id', currentSessionId);
-    if (updateError) throw updateError;
-    if (roomId) {
-      try {
-        await axios.post('/tiktok/stop', { unique_id: roomId });
-      } catch { // error intentionally ignored
-        // Ignore error (already stopped, etc.)
-      }
-    }
-  } catch (err: unknown) {
-    let msg = '방송 종료에 실패했습니다.';
-    if (err instanceof Error) msg = err.message;
-    setError(msg);
-  } finally {
-    // TikTokLive 소켓 종료 및 roomId 초기화 (항상)
-    setSessionStatus('end');
-    setRoomId("");
-    setRoomIdStatus("");
-    setRoomIdInput("");
-    setRoomIdConfirmed(false);
-    setShowRoomIdInput(false);
-  }
-};
-
-  // 비디오/오디오 에러 핸들러 (미사용, 삭제)
-
-
-  const handleMotionSelect = (url: string) => {
-    if (selectedMotion !== url) setSelectedMotion(url);
-  };
-
-  const setMotionByTag = (tag: string) => {
-  const literalTag = normalizeTag(tag);
-  const found = motionFiles.find(f => f.tag === literalTag);
-  if (found && selectedMotion !== found.url) setSelectedMotion(found.url);
-};
 
   const handleRoomIdRegister = async () => {
     setRoomIdStatus("");
     if (!roomIdInput) return;
     try {
+      console.log('[TikTok API] /tiktok/start 호출:', { unique_id: roomIdInput });
       const res = await axios.post("/tiktok/start", { unique_id: roomIdInput });
+      console.log('[TikTok API] /tiktok/start 응답:', res.data);
       setRoomId(roomIdInput);
-      setRoomIdConfirmed(true);
       setRoomIdStatus(res.data?.message || "Room ID 등록 및 TikTok 연동 성공");
       setShowRoomIdInput(false);
       setRoomIdInput("");
@@ -195,20 +180,19 @@ function BroadcastTab() {
       }
       alert(msg);
       setRoomIdInput("");
-      setRoomIdConfirmed(false);
     }
   };
 
   // Room ID가 등록된 경우, 상단에 표시
-const renderRoomIdInfo = () => (
-  roomIdConfirmed && roomId ? (
-    <div className="mb-2 text-sm text-green-700 font-semibold">현재 Room ID: <span className="font-mono">{roomId}</span></div>
-  ) : null
-);
+  function renderRoomIdInfo() {
+    return roomId ? (
+      <div className="mb-2 text-sm text-green-700 font-semibold">현재 Room ID: <span className="font-mono">{roomId}</span></div>
+    ) : null;
+  }
 
   return (
     <div className="broadcast-tab-container w-full h-full flex flex-col">
-      {/* 여기에 기존 정상 JSX만 남기고, 불필요/중복 JSX 및 닫히지 않은 태그 모두 제거 */}
+      {/* 캐릭터 선택 */}
       <div>
         <select value={selectedCharacterId} onChange={e => setSelectedCharacterId(e.target.value)}>
           <option value="">캐릭터 선택</option>
@@ -217,104 +201,76 @@ const renderRoomIdInfo = () => (
           ))}
         </select>
       </div>
-      {/* 기타 UI ... */}
+      {/* Room ID 정보 */}
       {renderRoomIdInfo()}
-      {error && (
-        <div className="text-red-500 mb-2">{error}</div>
-      )}
-      {roomIdStatus && (
-        <div className="text-blue-500 mb-2">{roomIdStatus}</div>
-      )}
-      {/* Room ID 입력 모달/팝업 (간단히 prompt 사용) */}
-      {showRoomIdInput && sessionStatus === 'start' && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 z-50">
-          <div className="bg-white p-6 rounded shadow-lg flex flex-col items-center">
-            <div className="mb-2 font-semibold">TikTok Room ID를 입력하세요</div>
-            <input
-              className="border px-2 py-1 rounded mb-2"
-              type="text"
-              placeholder="Room ID"
-              value={roomIdInput}
-              onChange={e => setRoomIdInput(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
-                  handleRoomIdRegister();
-                }
-              }}
-              autoFocus
-              disabled={roomIdConfirmed}
-            />
-            <button
-              className="bg-blue-500 text-white px-4 py-1 rounded mb-1"
-              onClick={handleRoomIdRegister}
-              disabled={!roomIdInput || roomIdConfirmed}
-            >
-              등록
-            </button>
-            <button
-              className="mt-1 text-gray-500 underline"
-              onClick={async () => {
-                // Room ID 초기화 및 백엔드 종료 요청
-                if (roomId) {
-                  try { await axios.post('/tiktok/stop', { unique_id: roomId }); } catch {}
-                }
-                setRoomId("");
-                setRoomIdInput("");
-                setRoomIdConfirmed(false);
-                setShowRoomIdInput(false);
-              }}
-            >
-              취소
-            </button>
-            {/* roomIdConfirmed && ... 블록 제거: 불필요한 열림 괄호 삭제 */}
-          </div>
-        </div>
-      )}
-      <span className="text-gray-700 font-semibold">
-        세션 상태: {sessionStatus === 'idle' ? '대기' : sessionStatus === 'start' ? '방송 중' : '종료'}
-      </span>
-      {currentSessionId && (
-        <span className="text-xs text-gray-500">Session ID: {currentSessionId}</span>
-      )}
-      {/* 버튼 그룹 */}
-      <div className="mb-4 flex items-center gap-2">
-        <button
-          className="rounded px-4 py-2 font-bold text-white bg-green-500"
-          onClick={handleStartBroadcast}
-        >
-          방송 시작
-        </button>
-        {sessionStatus === 'start' && (
-          <>
-            <button
-              className="rounded px-4 py-2 font-bold text-white bg-red-500"
-              onClick={handleEndBroadcast}
-            >
-              방송 종료
-            </button>
-          </>
-        )}
-      </div>
-      {/* 본문: 비디오 + 모션 파일 목록 */}
+      {/* 에러 메시지 */}
+      <StatusMessage type="error" message={error || ''} />
+      <StatusMessage type="info" message={roomIdStatus || ''} />
+      {/* Room ID 입력 모달 */}
+      <RoomIdModal
+        show={showRoomIdInput}
+        inputValue={roomIdInput}
+        onInputChange={e => setRoomIdInput(e.target.value)}
+        onRegister={handleRoomIdRegister}
+        onCancel={() => {
+          if (roomId) {
+            try {
+              axios.post('/tiktok/stop', { unique_id: roomId });
+            } catch {}
+          }
+          setRoomId("");
+          setRoomIdInput("");
+          setShowRoomIdInput(false);
+        }}
+      />
+      {/* 세션 상태 및 버튼 그룹 */}
+      <SessionControls
+        sessionStatus={sessionStatus}
+        onStart={handleStartBroadcast}
+        onEnd={handleEndBroadcast}
+        currentSessionId={currentSessionId}
+      />
+      {/* 본문: 비디오/오디오/모션 파일 리스트 */}
       <div className="flex flex-row flex-1 w-full">
         {/* Left: Video Player - 50% */}
-        <div className="flex items-center justify-center p-4 h-full">
+        <div className="flex items-center justify-center p-4 h-full relative">
+          {/* 현재 재생중인 파일명 오버레이 */}
+          {(() => {
+            const playing = motionFiles.find(f => f.url === selectedMotion);
+            if (!playing) return null;
+            return (
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-black bg-opacity-60 text-white text-xs px-3 py-1 rounded z-10 pointer-events-none shadow">
+                {playing?.name} <span className="text-gray-300">[{playing?.tag}]</span>
+              </div>
+            );
+          })()}
           <video
             ref={videoRef}
-            style={{ width: 720, maxWidth: '100%' }}
+            style={{ width: 360, maxWidth: '100%' }}
             className="h-full"
             src={selectedMotion || undefined}
-
             autoPlay
-            loop
+            loop={!!(motionFiles.find(f => f.url === selectedMotion)?.tag === 'neutral')}
             controls
+            onEnded={() => {
+              const found = motionFiles.find(f => f.url === selectedMotion);
+              console.log('[onEnded] fired. isGiftMotion:', isGiftMotion, 'selectedMotion:', selectedMotion, 'tag:', found?.tag, 'giftQueue:', JSON.stringify(giftQueue.current));
+              // gift-triggered 영상이 끝난 경우에만 다음 gift 재생
+              if (isGiftMotion) {
+                isPlayingGift.current = false;
+                playNextGift();
+              } else {
+                // gift가 아니고 neutral도 아니면 fallback
+                if (found && found.tag !== 'neutral') {
+                  setMotionByTag('neutral');
+                }
+              }
+            }}
           />
           <audio
             ref={audioRef}
             className="w-full h-full"
-
             autoPlay
-            controls
           />
         </div>
         {/* Right: Motion File List - 50% */}
@@ -346,5 +302,4 @@ const renderRoomIdInfo = () => (
     </div>
   );
 }
-
 export default BroadcastTab;

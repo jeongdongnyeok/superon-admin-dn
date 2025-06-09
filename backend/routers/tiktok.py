@@ -1,7 +1,8 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, BackgroundTasks, Request
 from pydantic import BaseModel
 from TikTokLive import TikTokLiveClient
-from TikTokLive.events import CommentEvent
+from TikTokLive.events import CommentEvent, GiftEvent
+from TikTokLive.client.errors import UserOfflineError
 from fastapi.responses import JSONResponse
 import asyncio
 import traceback
@@ -13,6 +14,7 @@ websocket_clients = set()
 
 # --- TikTokLive 세션 관리용 ---
 running_clients = {}
+active_clients = {}
 
 class TikTokStartRequest(BaseModel):
     unique_id: str
@@ -43,18 +45,32 @@ class TikTokStopRequest(BaseModel):
 async def stop_tiktok_listener(request: Request):
     data = await request.json()
     unique_id = data.get("unique_id")
+    app = request.app  # app 객체를 request에서 가져옴
     # 실제로 TikTokLive listener를 종료하는 로직 구현
-    # 예시: 백그라운드 태스크/소켓 관리 dict에서 해당 unique_id 세션 종료
     if unique_id in running_clients:
-        if app and unique_id in app.state.tiktok_tasks:
+        if hasattr(app.state, "tiktok_tasks") and unique_id in app.state.tiktok_tasks:
             task = app.state.tiktok_tasks[unique_id]
             task.cancel()
             del app.state.tiktok_tasks[unique_id]
         del running_clients[unique_id]
+        # --- 강제 client 종료 추가 ---
+        if unique_id in active_clients:
+            try:
+                await active_clients[unique_id].close()
+            except Exception:
+                pass
+            del active_clients[unique_id]
         print(f"[STOP] TikTokLive listener 종료: {unique_id}")
         return {"message": f"TikTokLive listener stopped for {unique_id}"}
     else:
         print(f"[STOP] 종료 요청: 이미 종료되었거나 세션 없음: {unique_id}")
+        # 혹시 남아있을 때도 강제 종료
+        if unique_id in active_clients:
+            try:
+                await active_clients[unique_id].close()
+            except Exception:
+                pass
+            del active_clients[unique_id]
         return {"message": f"No active TikTokLive listener for {unique_id}"}
 
 # 백그라운드에서 TikTok 채팅 수집 및 WebSocket으로 전송
@@ -69,6 +85,7 @@ def run_tiktok_listener(unique_id: str, max_retries: int = 2, retry_delay: int =
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             client = TikTokLiveClient(unique_id=unique_id)
+            active_clients[unique_id] = client
 
             # 상태 전송 함수
             async def send_status_to_clients(status, detail=None):
@@ -100,10 +117,55 @@ def run_tiktok_listener(unique_id: str, max_retries: int = 2, retry_delay: int =
                         print("WebSocket 전송 중 예외:")
                         print(traceback.format_exc())
 
+            @client.on(GiftEvent)
+            async def on_gift(event: GiftEvent):
+                gift_name = getattr(event.gift, "name", "")
+                gift_coin = getattr(event.gift, "diamond_count", "error")
+                repeat_count = getattr(event.gift, "repeat_count", 1)
+                user_nickname = getattr(event.user, "nickname", "")
+                print(f"[GIFT] name: {gift_name}, coin: {gift_coin}, repeat_count: {repeat_count}, user: {user_nickname}")
+                # diamond_count(coin)에 따라 gift_level_X로 motion_tag 결정
+                try:
+                    coin = int(gift_coin)
+                except Exception:
+                    coin = 1
+                if coin < 10:
+                    motion_tag = "gift_level_1"
+                elif coin < 50:
+                    motion_tag = "gift_level_2"
+                elif coin < 100:
+                    motion_tag = "gift_level_3"
+                elif coin < 500:
+                    motion_tag = "gift_level_4"
+                elif coin < 1000:
+                    motion_tag = "gift_level_5"
+                elif coin < 5000:
+                    motion_tag = "gift_level_6"
+                else:
+                    motion_tag = "gift_level_7"
+                gift_msg = {
+                    "type": "gift",
+                    "gift_name": gift_name,
+                    "gift_coin": gift_coin,
+                    "repeat_count": repeat_count,
+                    "user_nickname": user_nickname,
+                    "motion_tag": motion_tag
+                }
+                for ws in list(websocket_clients):
+                    try:
+                        asyncio.create_task(ws.send_json(gift_msg))
+                    except Exception:
+                        print("WebSocket gift 전송 중 예외:")
+                        print(traceback.format_exc())
+
             # 연결 성공 상태 알림
             loop.run_until_complete(send_status_to_clients("connected"))
             client.run()
             # 정상 종료 시 break
+            break
+        except UserOfflineError as e:
+            print("방송이 종료되었습니다:", str(e))
+            loop.run_until_complete(send_status_to_clients("ended", "방송이 종료되었습니다"))
             break
         except (ConnectionClosedError, ConnectionResetError) as e:
             retries += 1
@@ -145,7 +207,7 @@ if __name__ == "__main__":
     import sys
     import asyncio
     from TikTokLive import TikTokLiveClient
-    from TikTokLive.events import CommentEvent
+    from TikTokLive.events import CommentEvent, GiftEvent
     from TikTokLive.client.errors import SignAPIError, UserOfflineError, SignatureRateLimitError, TikTokLiveError
 
     unique_id = sys.argv[1] if len(sys.argv) > 1 else None
@@ -179,10 +241,17 @@ if __name__ == "__main__":
         print(f"[ERROR] 알 수 없는 에러: {e}")
         sys.exit(6)
     finally:
+        # 반드시 비동기로 client.close() 호출
         try:
-            asyncio.run(client.close())
-        except:
+            coro = client.close()
+            if asyncio.get_event_loop().is_running():
+                asyncio.ensure_future(coro)
+            else:
+                asyncio.run(coro)
+        except Exception:
             pass
+        if unique_id in active_clients:
+            del active_clients[unique_id]
     print("[EXIT] TikTokLive 채팅 수집 종료.")
 
 @router.websocket("/ws/tiktok")
