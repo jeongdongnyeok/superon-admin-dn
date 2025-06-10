@@ -27,15 +27,15 @@ export const useMotionFiles = (characterId: string | null) => {
         }
         return res.json();
       })
-      .then((data: any) => {
+      .then((data: unknown) => {
         console.log('[useMotionFiles] 원본 데이터:', data);
         
         // list.json의 구조에 맞게 수정: { "files": [...] } 형태를 처리
         let filesArray: MotionFile[] = [];
-        if (data && Array.isArray(data.files)) {
-          filesArray = data.files;
+        if (data && typeof data === 'object' && data !== null && 'files' in data && Array.isArray((data as any).files)) {
+          filesArray = (data as { files: MotionFile[] }).files;
         } else if (Array.isArray(data)) {
-          filesArray = data;
+          filesArray = data as MotionFile[];
         } else {
           console.warn('[useMotionFiles] 예상하지 못한 데이터 구조:', data);
           filesArray = [];
