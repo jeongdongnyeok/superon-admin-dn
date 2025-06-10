@@ -32,8 +32,16 @@ export const useMotionFiles = (characterId: string | null) => {
         
         // list.json의 구조에 맞게 수정: { "files": [...] } 형태를 처리
         let filesArray: MotionFile[] = [];
-        if (data && typeof data === 'object' && data !== null && 'files' in data && Array.isArray((data as any).files)) {
-          filesArray = (data as { files: MotionFile[] }).files;
+        function hasFilesProp(obj: unknown): obj is { files: MotionFile[] } {
+          return (
+            typeof obj === 'object' &&
+            obj !== null &&
+            'files' in obj &&
+            Array.isArray((obj as { files?: unknown }).files)
+          );
+        }
+        if (hasFilesProp(data)) {
+          filesArray = data.files;
         } else if (Array.isArray(data)) {
           filesArray = data as MotionFile[];
         } else {
