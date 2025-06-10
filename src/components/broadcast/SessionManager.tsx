@@ -37,7 +37,10 @@ const SessionManager: React.FC<SessionManagerProps> = ({
           value={selectedCharacter?.id || ''}
           onChange={e => {
             const char = characters.find(c => c.id === e.target.value);
-            if (char) onCharacterSelect(char);
+            if (char) {
+              console.log('[SessionManager] 캐릭터 선택:', char.id, char.name);
+              onCharacterSelect(char);
+            }
           }}
           disabled={sessionStatus === 'start'}
         >

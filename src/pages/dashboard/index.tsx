@@ -8,7 +8,7 @@ import CharacterTab from '@/components/CharacterTab'
 import UserTab from '@/components/UserTab'
 import PlaygroundTab from '@/components/PlaygroundTab'
 import ChatLogsTab from '@/components/ChatLogsTab'
-import BroadcastTab from '@/components/BroadcastTab'
+import BroadcastTab from '@/components/broadcast/BroadcastTab'
 
 function DashboardPage() {
   const router = useRouter()

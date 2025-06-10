@@ -17,10 +17,25 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   playNextGift,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const playing = motionFiles.find(f => f.url === selectedMotion);
+  const safeMotionFiles = Array.isArray(motionFiles) ? motionFiles : [];
+  const playing = safeMotionFiles.find(f => f.url === selectedMotion);
+
+  // 영상 src 보정 함수
+  const getVideoSrc = (url: string) => {
+    if (!url) return undefined;
+    // 이미 useMotionFiles에서 http로 시작하는 절대경로로 보정됨
+    return url;
+  };
 
   return (
     <div className="video-player flex flex-col items-center p-4 h-full">
+      {/* 영상이 없거나 재생할 파일이 없으면 안내 메시지 출력 */}
+      {(!Array.isArray(motionFiles) || motionFiles.length === 0 || !playing) && (
+        <div className="mb-4 w-full text-center text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">
+          정상적으로 영상파일이 로딩되지 않았습니다.<br />
+          (캐릭터별 모션 리스트 API 또는 영상 파일을 확인해주세요)
+        </div>
+      )}
       {/* 현재 재생중인 파일명 오버레이 */}
       {playing && (
         <div className="mb-2 bg-black bg-opacity-60 text-white text-xs px-3 py-1 rounded shadow">
@@ -29,8 +44,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       )}
       <video
         ref={videoRef}
-        className="w-full max-w-md h-64 rounded border"
-        src={selectedMotion || undefined}
+        style={{ width: 375, height: 812 }}
+        className="rounded border mx-auto"
+        src={getVideoSrc(selectedMotion)}
         autoPlay
         loop={playing?.tag === 'neutral'}
         controls

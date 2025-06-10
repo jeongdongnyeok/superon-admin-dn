@@ -8,7 +8,7 @@ export const useWebSocket = (roomId: string) => {
 
   useEffect(() => {
     if (!roomId) return;
-    const ws = new WebSocket(`wss://your-tiktoklive-server/ws/${roomId}`);
+    const ws = new WebSocket(`ws://localhost:8000/ws/${roomId}`);
     wsRef.current = ws;
     setWsStatus('connecting');
 
