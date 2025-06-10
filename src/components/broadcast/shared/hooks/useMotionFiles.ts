@@ -45,7 +45,7 @@ export const useMotionFiles = (characterId: string | null) => {
 
         // URL 정규화 및 태그 보정
         const normalized = filesArray.map((f: MotionFile) => {
-          let normalizedFile = { ...f };
+          const normalizedFile = { ...f };
           
           // URL이 이미 올바른 형태인지 확인
           if (!f.url || !f.url.startsWith('/backend/')) {
@@ -104,7 +104,7 @@ export const useMotionFiles = (characterId: string | null) => {
   const setMotionByTag = useCallback((tag: string, source?: string) => {
     console.log(`[useMotionFiles] setMotionByTag 호출: tag=${tag}, source=${source || 'unknown'}`);
     if (!motionFiles || motionFiles.length === 0) return;
-    const candidates = motionFiles.filter(f => f.tag === tag);
+    const candidates = motionFiles.filter((f: MotionFile) => f.tag === tag);
     if (candidates.length > 0) {
       const chosen = candidates[Math.floor(Math.random() * candidates.length)];
       console.log(`[useMotionFiles] setMotionByTag: 재생할 파일 선택됨 (tag=${tag}, url=${chosen.url}, name=${chosen.name})`);

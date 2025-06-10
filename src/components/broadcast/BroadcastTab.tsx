@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import SessionManager from './SessionManager';
 import VideoPlayer from './VideoPlayer';
 import ChatLogs from './ChatLogs';
@@ -13,7 +13,7 @@ const BroadcastTab: React.FC = () => {
   React.useEffect(() => {
     console.log('[BroadcastTab] 컴포넌트 마운트');
   }, []);
-  const { characters, isLoading: isLoadingCharacters, error: characterError } = useCharacters();
+  const { characters, error: characterError } = useCharacters();
 
   // 진단 로그: 캐릭터 목록 로딩
   React.useEffect(() => {
@@ -24,13 +24,9 @@ const BroadcastTab: React.FC = () => {
   // 세션/캐릭터/Room ID 관리
   const {
     sessionStatus,
-    setSessionStatus,
     roomId,
     setRoomId,
     roomIdConfirmed,
-    setRoomIdConfirmed,
-    error,
-    setError,
     startBroadcast,
     endBroadcast,
     registerRoomId,
@@ -44,16 +40,7 @@ const BroadcastTab: React.FC = () => {
   React.useEffect(() => {
     console.log('[BroadcastTab] selectedCharacterId:', selectedCharacterId);
   }, [selectedCharacterId]);
-  const selectedCharacter = React.useMemo(() => {
-    const found = characters.find(c => c.id === selectedCharacterId) || null;
-    if (selectedCharacterId && !found) {
-      console.error('[BroadcastTab] selectedCharacterId는 있지만 해당 캐릭터를 characters에서 찾지 못함:', selectedCharacterId);
-    }
-    if (found) {
-      console.log('[BroadcastTab] selectedCharacter:', found.id, found.name);
-    }
-    return found;
-  }, [characters, selectedCharacterId]);
+
 
   const {
     motionFiles,
@@ -97,7 +84,7 @@ const BroadcastTab: React.FC = () => {
         tiktokSocketRef.current = null;
         console.log('[FRONTEND] WebSocket 연결 종료');
       };
-    } catch (err) {
+    } catch {
       alert('틱톡 방송 시작에 실패했습니다.');
     }
   };
@@ -130,6 +117,17 @@ const BroadcastTab: React.FC = () => {
     console.log('[BroadcastTab] motionFiles changed:', motionFiles);
   }, [motionFiles]);
 
+  // 방송 종료 시 WebSocket 연결 해제 및 채팅 로그 초기화
+  const handleEndBroadcast = () => {
+    endBroadcast();
+    if (tiktokSocketRef.current) {
+      tiktokSocketRef.current.close();
+      tiktokSocketRef.current = null;
+      console.log('[BroadcastTab] 방송 종료: WebSocket 연결 해제');
+    }
+    setTiktokChats([]);
+  };
+
   return (
     <>
       <div className="broadcast-tab w-full h-full flex flex-row">
@@ -149,7 +147,7 @@ const BroadcastTab: React.FC = () => {
               startBroadcast(character);
             }
           }}
-          onEnd={endBroadcast}
+          onEnd={handleEndBroadcast}
           roomId={roomId}
           onRoomIdChange={setRoomId}
           roomIdConfirmed={roomIdConfirmed}
@@ -157,7 +155,7 @@ const BroadcastTab: React.FC = () => {
             registerRoomId(roomId);
             handleStartTiktok();
           }}
-          error={error || characterError}
+          error={characterError}
         />
       </div>
       {/* Video Player */}

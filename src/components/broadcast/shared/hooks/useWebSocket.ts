@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { ChatMessage } from '../types';
 
 export const useWebSocket = (roomId: string) => {
@@ -15,12 +15,13 @@ export const useWebSocket = (roomId: string) => {
     ws.onopen = () => setWsStatus('open');
     ws.onclose = () => setWsStatus('closed');
     ws.onerror = () => setWsStatus('closed');
-    ws.onmessage = (event) => {
+    const handleMessage = useCallback((event: MessageEvent) => {
       try {
-        const msg = JSON.parse(event.data);
-        setMessages(prev => [...prev, msg]);
+        const data = JSON.parse(event.data) as unknown;
+        setMessages(prev => [...prev, data as ChatMessage]);
       } catch {}
-    };
+    }, []);
+    ws.onmessage = handleMessage;
     return () => {
       ws.close();
       setWsStatus('closed');
