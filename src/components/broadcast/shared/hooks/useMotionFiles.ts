@@ -112,7 +112,7 @@ export const useMotionFiles = (characterId: string | null) => {
       setIsGiftMotion(tag.startsWith('gift'));
     } else {
       // fallback: neutral
-      const neutral = motionFiles.find(f => f.tag === 'neutral');
+      const neutral = motionFiles.find((f: MotionFile) => f.tag === 'neutral');
       if (neutral) {
         console.log('[useMotionFiles] setMotionByTag: 해당 tag 없음, neutral로 fallback');
         setSelectedMotion(neutral.url);
