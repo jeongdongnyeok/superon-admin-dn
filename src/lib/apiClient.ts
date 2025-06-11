@@ -1,9 +1,7 @@
 // src/lib/apiClient.ts
 
 const BASE_URL = process.env.NEXT_PUBLIC_FASTAPI_BASE_URL || 'http://localhost:8000';
-function getWsBaseUrl() {
-  return BASE_URL.replace(/^http/, 'ws');
-}
+
 
 export const loadCharacter = async (id: string, world: string) => {
     await fetch(`${BASE_URL}/load_character`, {
