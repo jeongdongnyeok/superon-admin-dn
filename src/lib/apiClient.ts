@@ -1,6 +1,12 @@
 // src/lib/apiClient.ts
+
+const BASE_URL = process.env.NEXT_PUBLIC_FASTAPI_BASE_URL || 'http://localhost:8000';
+function getWsBaseUrl() {
+  return BASE_URL.replace(/^http/, 'ws');
+}
+
 export const loadCharacter = async (id: string, world: string) => {
-    await fetch('http://localhost:8000/load_character', {
+    await fetch(`${BASE_URL}/load_character`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, world }),
@@ -8,7 +14,7 @@ export const loadCharacter = async (id: string, world: string) => {
   }
   
   export const askCharacter = async (id: string, question: string) => {
-    const res = await fetch('http://localhost:8000/ask_character', {
+    const res = await fetch(`${BASE_URL}/ask_character`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, question }),
@@ -27,7 +33,7 @@ export const loadCharacter = async (id: string, world: string) => {
     tone: string
   }
 ) => {
-  const res = await fetch("http://localhost:8000/load_character", {
+  const res = await fetch(`${BASE_URL}/load_character`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id, world, profile }),

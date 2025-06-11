@@ -42,6 +42,7 @@ interface SessionOption {
   id: string;
 }
 
+const BASE_URL = process.env.NEXT_PUBLIC_FASTAPI_BASE_URL || 'http://localhost:8000';
 const ChatLogsTab: React.FC = () => {
   const [logs, setLogs] = useState<ChatLog[]>([]);
   const [characters, setCharacterss] = useState<CharactersOption[]>([]);
@@ -65,7 +66,7 @@ const ChatLogsTab: React.FC = () => {
 
   // Fetch session list for filter (filtered by character if selected)
   useEffect(() => {
-    let url = 'http://localhost:8000/sessions';
+    let url = `${BASE_URL}/sessions';
     if (selectedCharacters) url += `?characters_id=${selectedCharacters}`;
     fetch(url)
       .then(res => {
@@ -80,7 +81,7 @@ const ChatLogsTab: React.FC = () => {
   const fetchLogs = () => {
     setLoading(true);
     setError(null);
-    let url = 'http://localhost:8000/chat/logs?';
+    let url = `${BASE_URL}/chat/logs?';
     if (selectedCharacters) url += `characters_id=${selectedCharacters}&`;
     if (selectedSession) url += `session_id=${selectedSession}&`;
     if (selectedDate) url += `date=${selectedDate.format('YYYY-MM-DD')}&`;

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import axios from 'axios';
+const BASE_URL = process.env.NEXT_PUBLIC_FASTAPI_BASE_URL || 'http://localhost:8000';
 import { supabase } from '@/lib/supabaseClient';
 
 type Character = {
@@ -130,7 +131,7 @@ export default function CharactersTab() {
 
   const handleStartSession = async (char: Character) => {
     try {
-      const res = await axios.post('http://localhost:8000/start_session', {
+      const res = await axios.post(`${BASE_URL}/start_session`, {
         characters_id: char.id,
       });
       if (res.data?.session_id) {
@@ -139,13 +140,16 @@ export default function CharactersTab() {
     } catch (error: unknown) {
       console.error('라이브 시작 실패:', error);
       let errorMessage = '라이브 시작 실패';
-      
       if (axios.isAxiosError(error)) {
-        errorMessage = error.response?.data?.message || error.message;
+        const data = error.response?.data;
+        if (typeof data === 'string') errorMessage = data;
+        else if (typeof data?.error === 'string') errorMessage = data.error;
+        else if (typeof data?.detail === 'string') errorMessage = data.detail;
+        else if (typeof data?.message === 'string') errorMessage = data.message;
+        else errorMessage = error.message;
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
-      
       alert(`세션 시작 중 오류가 발생했습니다: ${errorMessage}`);
     }
   };
@@ -166,14 +170,25 @@ export default function CharactersTab() {
         return;
       }
 
-      await axios.post('http://localhost:8000/end_session', {
+      await axios.post(`${BASE_URL}/end_session`, {
         session_id,
       });
 
       await fetchCharacters();
     } catch (e) {
       console.error('라이브 종료 실패:', e);
-      alert('라이브 종료 실패');
+      let errorMessage = '라이브 종료 실패';
+      if (axios.isAxiosError(e)) {
+        const data = e.response?.data;
+        if (typeof data === 'string') errorMessage = data;
+        else if (typeof data?.error === 'string') errorMessage = data.error;
+        else if (typeof data?.detail === 'string') errorMessage = data.detail;
+        else if (typeof data?.message === 'string') errorMessage = data.message;
+        else errorMessage = e.message;
+      } else if (e instanceof Error) {
+        errorMessage = e.message;
+      }
+      alert(`라이브 종료 실패: ${errorMessage}`);
     }
   };
 

@@ -19,12 +19,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Read directory and filter for .mp4 files
-    const files = fs.readdirSync(MOTIONS_DIR)
+    const BASE_URL = process.env.NEXT_PUBLIC_FASTAPI_BASE_URL || 'http://localhost:8000';
+const files = fs.readdirSync(MOTIONS_DIR)
       .filter(file => file.toLowerCase().endsWith('.mp4'))
       .map(file => ({
         name: file,
         path: path.join('motion', file),
-        url: `http://localhost:8000/assets/motion/${encodeURIComponent(file)}`
+        url: `${BASE_URL}/assets/motion/${encodeURIComponent(file)}`
       }));
 
     return res.status(200).json({ files });

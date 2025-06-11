@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChatMessage } from '../types';
 
+const BASE_URL = process.env.NEXT_PUBLIC_FASTAPI_BASE_URL || 'http://localhost:8000';
+function getWsBaseUrl() {
+  return BASE_URL.replace(/^http/, 'ws');
+}
 export const useWebSocket = (roomId: string) => {
   const [wsStatus, setWsStatus] = useState<'init' | 'open' | 'closed'>('init');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -8,7 +12,7 @@ export const useWebSocket = (roomId: string) => {
 
   useEffect(() => {
     if (!roomId) return;
-    const ws = new WebSocket(`ws://localhost:8000/ws/${roomId}`);
+    const ws = new WebSocket(`${getWsBaseUrl()}/ws/${roomId}`);
     wsRef.current = ws;
 
     setWsStatus('init'); // 연결 시도 시작 시 상태를 'init'으로 설정
