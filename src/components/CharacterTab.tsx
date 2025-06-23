@@ -14,76 +14,79 @@ type Character = {
   created_at?: string;
 };
 
+
 export default function CharactersTab() {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [imageUrlsById, setImageUrlsById] = useState<Record<string, string>>({});
 
+  // 이미지 URL이 상대경로일 경우 /로 시작하도록 보정(강화)
+  const getImageSrc = (url?: string | null) => {
+    console.log('[getImageSrc] input:', url);
+    if (!url || typeof url !== 'string' || url.trim() === '') {
+      console.log('[getImageSrc] output: /default.png');
+      return '/default.png';
+    }
+    if (url.startsWith('http')) {
+      console.log('[getImageSrc] output:', url);
+      return url;
+    }
+    const normalized = url.startsWith('/') ? url : '/' + url;
+    if (!normalized.startsWith('/')) {
+      console.error('[getImageSrc] next/image src runtime error: invalid src', url, normalized);
+      return '/default.png';
+    }
+    console.log('[getImageSrc] output:', normalized);
+    return normalized;
+  };
+
+
+
   const fetchCharacters = async () => {
     setLoading(true);
     try {
       const response = await axios.get('/api/character');
-      const chars = response.data || [];
+      const chars: Character[] = response.data || [];
       setCharacters(chars);
-      
-      // image_url이 storage path면 signed URL로 변환하여 표시 (이미 구현됨)
-// Generate signed URLs for images
+
       const urls: Record<string, string> = {};
       await Promise.all(
-        chars.map(async (char: Character) => {
+        chars.map(async (char) => {
           if (char.image_url) {
             try {
-              // Skip if it's already a signed URL
               if (char.image_url.includes('supabase.co/storage/v1/object/sign/')) {
                 urls[char.id] = char.image_url;
                 return;
               }
-              
+              // Supabase Storage: path should NOT start with a leading slash
+              const storagePath = (char.image_url || '').replace(/^\//, '');
               const { data, error } = await supabase.storage
                 .from('character-assets')
-                .createSignedUrl(char.image_url, 60 * 60);
-                
+                .createSignedUrl(storagePath, 60 * 60);
               if (error) throw error;
               if (data?.signedUrl) {
                 urls[char.id] = data.signedUrl;
+              } else {
+                urls[char.id] = '/default.png'; // signed URL이 없으면 기본 이미지
               }
             } catch (e) {
               console.error(`Error generating signed URL for character ${char.id}:`, e);
-              // Don't fail the whole operation if one image fails
+              urls[char.id] = '/default.png'; // 실패 시 기본 이미지
             }
+          } else {
+            urls[char.id] = '/default.png'; // image_url이 없으면 기본 이미지
           }
         })
       );
       setImageUrlsById(urls);
-    } catch (error: unknown) {
-      console.error('캐릭터 목록을 불러오는 중 오류가 발생했습니다:', error);
-      
+    } catch (error: any) {
       let errorMessage = '캐릭터 목록을 불러오는 중 오류가 발생했습니다.';
-      
       if (axios.isAxiosError(error)) {
-        if (error.response) {
-          // 서버에서 응답이 왔지만 에러 상태 코드인 경우
-          switch (error.response.status) {
-            case 401:
-              errorMessage = '인증이 필요합니다. 로그인 해주세요.';
-              break;
-            case 403:
-              errorMessage = '이 작업을 수행할 권한이 없습니다.';
-              break;
-            case 500:
-              errorMessage = '서버 내부 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
-              break;
-            default:
-              errorMessage = `서버 오류 (${error.response.status})`;
-          }
-        } else if (error.request) {
-          // 요청이 전송되었지만 응답을 받지 못한 경우
-          errorMessage = '서버로부터 응답을 받지 못했습니다. 네트워크 연결을 확인해주세요.';
-        } else {
-          // 요청을 설정하는 중에 오류가 발생한 경우
-          errorMessage = '요청을 처리하는 중 오류가 발생했습니다.';
-        }
+        const data = error.response?.data;
+        if (typeof data === 'string') errorMessage = data;
+        else if (typeof data?.error === 'string') errorMessage = data.error;
+        else if (typeof data?.detail === 'string') errorMessage = data.detail;
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
@@ -211,19 +214,27 @@ export default function CharactersTab() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {characters.map((char) => (
             <div key={char.id} className="border rounded p-4 shadow-sm relative">
-              {imageUrlsById[char.id] ? (
-                <Image
-                  src={imageUrlsById[char.id]}
-                  alt={char.name}
-                  width={400}
-                  height={192}
-                  className="w-full h-48 object-cover mb-2 rounded"
-                />
-              ) : (
-                <div className="w-full h-48 bg-gray-200 flex items-center justify-center mb-2 rounded">
-                  <span className="text-gray-400">이미지 없음</span>
-                </div>
-              )}
+              {(() => {
+                const src = getImageSrc(imageUrlsById[char.id]);
+                console.log('[CharacterTab] Rendering image for', char.id, 'src:', src);
+                if (src === '/default.png') {
+                  return (
+                    <div className="w-full h-48 bg-gray-200 flex items-center justify-center mb-2 rounded">
+                      <span className="text-gray-400">이미지 없음</span>
+                    </div>
+                  );
+                }
+                return (
+                  <Image
+                    src={src}
+                    alt={char.name}
+                    width={400}
+                    height={192}
+                    className="w-full h-48 object-cover mb-2 rounded"
+                  />
+                );
+              })()}
+
               <h3 className="text-xl font-semibold">{char.name}</h3>
               <p className="text-sm text-gray-600">{char.description}</p>
 
@@ -253,6 +264,12 @@ export default function CharactersTab() {
                   className="text-blue-500 underline text-sm mt-1"
                 >
                   ✏️ 수정
+                </Link>
+                <Link
+                  href={`/dashboard/characters/${char.id}/settings`}
+                  className="text-purple-600 underline text-sm mt-1 ml-2"
+                >
+                  ⚙️ 설정
                 </Link>
               </div>
 

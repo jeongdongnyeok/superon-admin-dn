@@ -4,7 +4,7 @@ import {
   TextField, Button, Box, Typography, MenuItem, Select, InputLabel, SelectChangeEvent
 } from "@mui/material";
 import axios from "axios";
-import { supabase } from "../../../lib/supabaseClient";
+import { supabase } from "@/lib/supabaseClient";
 import type { Session } from "@supabase/supabase-js";
 
 type CharactersFormState = {
@@ -175,16 +175,16 @@ export default function CharacterNewForm() {
       } else {
         setError("캐릭터 생성은 성공했으나, id를 반환받지 못했습니다.");
       }
-    } catch (err: unknown) {
+    } catch (err: any) {
       let msg = "캐릭터 생성에 실패했습니다.";
-      if (err instanceof Error) {
-        msg = err.message;
-      } else if (axios.isAxiosError(err)) {
+      if (axios.isAxiosError(err)) {
         const data = err.response?.data;
         if (typeof data === "string") msg = data;
         else if (typeof data?.error === "string") msg = data.error;
         else if (typeof data?.detail === "string") msg = data.detail;
         else if (typeof data === "object") msg = JSON.stringify(data);
+      } else if (err instanceof Error) {
+        msg = err.message;
       }
       setError(msg);
     }

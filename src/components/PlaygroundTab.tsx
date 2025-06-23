@@ -18,15 +18,40 @@ type Character = {
 
 const FASTAPI_BASE_URL = process.env.NEXT_PUBLIC_FASTAPI_BASE_URL || 'http://localhost:8000';
 
+type ExampleQA = { user: string; character: string };
+
+// 이미지 URL이 상대경로일 경우 /로 시작하도록 보정(강화)
+function getImageSrc(url?: string | null) {
+  console.log('[getImageSrc] input:', url);
+  if (!url || typeof url !== 'string' || url.trim() === '') {
+    console.log('[getImageSrc] output: /default.png');
+    return '/default.png';
+  }
+  if (url.startsWith('http')) {
+    console.log('[getImageSrc] output:', url);
+    return url;
+  }
+  const normalized = url.startsWith('/') ? url : '/' + url;
+  if (!normalized.startsWith('/')) {
+    console.error('[getImageSrc] next/image src runtime error: invalid src', url, normalized);
+    return '/default.png';
+  }
+  console.log('[getImageSrc] output:', normalized);
+  return normalized;
+}
+
 export default function Playground() {
-  const [characters, setCharacters] = useState<Character[]>([])
-  const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null)
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
+  const [selectedCharacterImageUrl, setSelectedCharacterImageUrl] = useState<string>('/default.png');
   const [prompt, setPrompt] = useState('')
   const [isLoadingCharacter, setIsLoadingCharacter] = useState(false)
   const [isAsking, setIsAsking] = useState(false)
-  const [chatHistory, setChatHistory] = useState<{ type: 'user' | 'bot' | 'loading' | 'info'; content: string }[]>([]);
+  const [chatHistory, setChatHistory] = useState<{ type: 'user' | 'bot' | 'loading' | 'info'; content: string; emotion?: string }[]>([]);
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null); // 세션 ID 상태 추가
+  const [characterSettings, setCharacterSettings] = useState<{ instruction: string; examples: ExampleQA[] } | null>(null);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,20 +77,60 @@ export default function Playground() {
     fetchCharacters()
   }, [])
 
-  const handleCharacterChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    const characterId = event.target.value;
+  const handleCharacterChange = async (event: ChangeEvent<HTMLSelectElement>) => {
+    if (!event || !event.target) return;
+    const target = event.target as HTMLSelectElement;
+    const characterId = target.value;
     if (!characterId) {
       setSelectedCharacter(null);
+      setSelectedCharacterImageUrl('/default.png');
       setIsSessionActive(false);
       setChatHistory([]);
+      setCharacterSettings(null);
       return;
     }
     const char = characters.find((c) => c.id === characterId);
     if (char) {
       setSelectedCharacter(char);
+      // 이미지 URL 처리: supabase storage 경로면 signed URL 생성
+      let imgUrl = char.image_url || '';
+      if (imgUrl && !imgUrl.startsWith('http')) {
+        try {
+          const storagePath = imgUrl.replace(/^\//, '');
+          const { data, error } = await supabase.storage
+            .from('character-assets')
+            .createSignedUrl(storagePath, 60 * 60);
+          if (error || !data?.signedUrl) {
+            imgUrl = '/default.png';
+          } else {
+            imgUrl = data.signedUrl;
+          }
+        } catch {
+          imgUrl = '/default.png';
+        }
+      }
+      setSelectedCharacterImageUrl(imgUrl);
       setIsSessionActive(false);
       setChatHistory([{ type: 'info', content: `'${char.name}'님과 대화를 시작하려면 "대화 시작" 버튼을 눌러주세요.` }]);
+      setIsLoadingSettings(true);
+      setCharacterSettings(null);
+      try {
+        const res = await fetch(`/api/characters/${char.id}/settings`);
+        if (!res.ok) throw new Error('캐릭터 설정값을 불러오지 못했습니다.');
+        const data = await res.json();
+        setCharacterSettings({
+          instruction: data.instruction || '',
+          examples: Array.isArray(data.examples) ? data.examples : [],
+        });
+        setChatHistory((prev: any[]) => [...prev, { type: 'info', content: '캐릭터 설정값(instruction/예시) 불러오기 성공.' }]);
+      } catch (e) {
+        setCharacterSettings(null);
+        setChatHistory((prev: any[]) => [...prev, { type: 'info', content: '캐릭터 설정값(instruction/예시) 불러오기 실패.' }]);
+      } finally {
+        setIsLoadingSettings(false);
+      }
     }
+
   };
 
   const handleStartSession = async () => {
@@ -73,41 +138,12 @@ export default function Playground() {
     setIsLoadingCharacter(true);
     setChatHistory([{ type: 'loading', content: `'${selectedCharacter.name}'님을 불러오는 중...` }]);
     try {
-      // 1. 세션 생성 (FastAPI)
-      const sessionRes = await fetch(`${FASTAPI_BASE_URL}/start_session`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ character_id: selectedCharacter.id }),
-      });
-      const sessionData = await sessionRes.json();
-      if (!sessionRes.ok || !sessionData.session_id) {
-        throw new Error(sessionData.detail || sessionData.message || '세션 생성 실패');
-      }
-      setSessionId(sessionData.session_id);
-      // 2. 캐릭터 로딩 (기존과 동일)
-      const requestBody = {
-        id: selectedCharacter.id,
-        world: selectedCharacter.world,
-        profile: {
-          name: selectedCharacter.name,
-          style: selectedCharacter.style ?? '',
-          perspective: selectedCharacter.perspective ?? '',
-          tone: selectedCharacter.tone ?? '',
-        },
-      };
-      const res = await fetch(`${FASTAPI_BASE_URL}/load_character`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      });
-      const resData = await res.json();
-      if (!res.ok) {
-        throw new Error(resData.message || '캐릭터 로딩에 실패했습니다.');
-      }
+      // PlaygroundTab에서는 세션 생성 없이 바로 LLM 안내 메시지 출력
       setChatHistory([{ type: 'bot', content: `'${selectedCharacter.name}'님과의 대화가 시작되었습니다. 무엇이 궁금하세요?` }]);
       setIsSessionActive(true);
+      setSessionId(null); // Playground에서는 세션 없음
     } catch (error: unknown) {
-      console.error('Error starting session or loading character:', error);
+      console.error('Error starting session:', error);
       const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
       setChatHistory([{ type: 'bot', content: `캐릭터 세션 시작 실패: ${errorMessage}` }]);
       setIsSessionActive(false);
@@ -115,6 +151,7 @@ export default function Playground() {
     }
     setIsLoadingCharacter(false);
   };
+
 
   const handleEndSession = async () => {
     if (!sessionId) return;
@@ -144,10 +181,7 @@ export default function Playground() {
       return;
     }
 
-    if (!sessionId) {
-      setChatHistory(prev => [...prev, { type: 'info', content: '세션이 존재하지 않습니다. 대화를 시작해주세요.' }]);
-      return;
-    }
+
 
     const currentPrompt = prompt;
     setChatHistory(prev => [...prev, { type: 'user', content: currentPrompt }]);
@@ -156,18 +190,18 @@ export default function Playground() {
     setChatHistory(prev => [...prev, { type: 'loading', content: '답변 생성 중...' }]);
 
     try {
-      if (!sessionId) {
-        setChatHistory(prev => [...prev, { type: 'info', content: '세션이 존재하지 않습니다. 대화를 시작해주세요.' }]);
-        setIsAsking(false);
-        return;
-      }
+
+      // 프롬프트 조합: instruction, examples, user_input 모두 백엔드에 전달
       const res = await fetch(`${FASTAPI_BASE_URL}/ask_character`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: selectedCharacter.id,
-          session_id: sessionId,
+
           viewer_id: 'playground-user',
+          instruction: characterSettings?.instruction || '',
+          examples: characterSettings?.examples || [],
+          user_input: currentPrompt,
           history: [
             ...chatHistory
               .filter((msg) => msg.type === 'user' || msg.type === 'bot')
@@ -187,7 +221,7 @@ export default function Playground() {
         const errorMessage = data?.detail || data?.message || '질문에 대한 답변을 가져오는데 실패했습니다.';
         throw new Error(errorMessage);
       }
-      setChatHistory(prev => [...prev, { type: 'bot', content: data.response }]);
+      setChatHistory(prev => [...prev, { type: 'bot', content: data.response, emotion: data.emotion }]);
     } catch (error: unknown) {
       console.error('Error asking character:', error);
       const errorMessage = error instanceof Error ? error.message : '질문 처리 중 알 수 없는 오류가 발생했습니다.';
@@ -219,20 +253,46 @@ export default function Playground() {
       {selectedCharacter && (
         <div className="flex-shrink-0 p-4 border rounded-lg shadow-md bg-white space-y-3">
           <div className="flex items-center gap-4">
-            {selectedCharacter.image_url && (
-              <Image
-                src={selectedCharacter.image_url}
-                alt={selectedCharacter.name}
-                width={80}
-                height={80}
-                className="rounded object-cover"
-              />
-            )}
+            <Image
+              src={getImageSrc(selectedCharacterImageUrl)}
+              alt={selectedCharacter.name}
+              width={80}
+              height={80}
+              className="rounded object-cover"
+            />
             <div>
               <h2 className="text-xl font-bold">{selectedCharacter.name}</h2>
               <p className="text-gray-600 text-sm">{selectedCharacter.description}</p>
             </div>
           </div>
+
+          {/* 캐릭터 프롬프트/예시 표시 */}
+          {characterSettings && (
+            <div className="mt-4 p-3 bg-gray-50 border rounded-lg">
+              <div className="mb-2">
+                <span className="font-semibold text-gray-700">프롬프트(Instruction):</span>
+                <div className="whitespace-pre-line text-gray-800 bg-white rounded p-2 border mt-1 text-sm">
+                  {characterSettings.instruction || <span className="text-gray-400">(설정 없음)</span>}
+                </div>
+              </div>
+              <div>
+                <span className="font-semibold text-gray-700">예시 문답:</span>
+                {characterSettings.examples && characterSettings.examples.length > 0 ? (
+                  <ul className="space-y-1 mt-1">
+                    {characterSettings.examples.map((ex, i) => (
+                      <li key={i} className="text-sm bg-white rounded p-2 border">
+                        <span className="text-blue-700">Q. {ex.user}</span><br/>
+                        <span className="text-green-700">A. {ex.character}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-gray-400 text-sm">(예시 없음)</div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-2 mt-2">
             {!isSessionActive && (
               <button
@@ -253,6 +313,10 @@ export default function Playground() {
               </button>
             )}
           </div>
+          {/* 안내문구 */}
+          {!isSessionActive && characterSettings && (
+            <div className="mt-2 text-xs text-gray-500">※ 대화 시작 시 위 프롬프트와 예시가 LLM 컨텍스트로 활용됩니다.</div>
+          )}
         </div>
       )}
       {/* 채팅창 */}
@@ -267,13 +331,16 @@ export default function Playground() {
                   msg.type === 'user'
                     ? 'inline-block bg-blue-100 text-blue-900 rounded px-3 py-2'
                     : msg.type === 'bot'
-                    ? 'inline-block bg-gray-200 text-gray-800 rounded px-3 py-2'
+                    ? 'inline-block bg-gray-200 text-gray-800 rounded px-3 py-2 border-l-4 border-blue-400'
                     : msg.type === 'loading'
                     ? 'inline-block bg-yellow-100 text-yellow-800 rounded px-3 py-2'
                     : 'inline-block bg-gray-100 text-gray-500 rounded px-3 py-2'
                 }
               >
                 {msg.content}
+                {msg.type === 'bot' && msg.emotion && (
+                  <span className="ml-2 text-xs text-pink-600">[{msg.emotion}]</span>
+                )}
               </span>
             </div>
           ))

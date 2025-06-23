@@ -8,6 +8,15 @@ interface Props {
   characterId: string;
 }
 
+// 이미지 URL이 상대경로일 경우 /로 시작하도록 보정(강화)
+function getImageSrc(url?: string | null) {
+  if (!url || typeof url !== 'string' || url.trim() === '') return '/default.png';
+  if (url.startsWith('http')) return url;
+  const normalized = url.startsWith('/') ? url : '/' + url;
+  if (!normalized.startsWith('/')) return '/default.png';
+  return normalized;
+}
+
 export default function CharacterImageUpload({ imageUrl, setImageUrl, characterId }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -78,7 +87,7 @@ export default function CharacterImageUpload({ imageUrl, setImageUrl, characterI
   return (
     <Box sx={{ mb: 2 }}>
       <Typography variant="subtitle1">캐릭터 이미지</Typography>
-      {previewUrl && <img src={previewUrl} alt="character" style={{ maxWidth: 200, display: "block", marginBottom: 8 }} />}
+      <img src={getImageSrc(previewUrl)} alt="character" style={{ maxWidth: 200, display: "block", marginBottom: 8 }} />
       {!authChecked ? (
         <Typography color="text.secondary">인증 상태 확인 중...</Typography>
       ) : !isLoggedIn ? (

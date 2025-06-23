@@ -1,0 +1,105 @@
+# Task ID: 3
+# Title: Develop Character Response Engine with LangGraph (Node-based Modular Architecture)
+# Status: in-progress
+# Dependencies: 1
+# Priority: high
+# Description: Implement the core AI response generation system using LangGraph for node-based modular prompt management, response generation, emotion classification, and memory/context management. Integrate LangSmith tracing for monitoring and debugging.
+# Details:
+1. Set up LangGraph integration: ✅
+   - Install and configure LangGraph and LangChain libraries
+   - Connect to appropriate LLM (OpenAI API)
+   - Implement prompt template system
+   - Integrate LangSmith tracing for node-level monitoring
+
+2. Admin Instruction Management:  
+   - Provide an admin interface for entering and updating character instructions (background, worldview, style, tone, etc.).
+   - Store instructions in the database, allowing CRUD operations from the admin page.
+   - [Instruction Loader Node]: Loads the latest admin instruction for the character.
+
+3. Node-based Prompt Composition Pipeline (LangGraph):
+   - [Instruction Loader Node]: Loads admin/character/world instructions
+   - [Situation Filter Node]: Selects appropriate user input from chat log/memory
+   - [LLM Response Node]: Composes prompt and invokes LLM (OpenAI, etc.)
+   - [OutputParser Node]: Parses LLM output for emotion tags and other metadata
+   - [Memory Update Node]: Updates conversation memory and stores logs in the database
+   - Nodes are modular and can be independently extended or replaced (e.g., advanced emotion classifier, RAG retrieval, etc.)
+   - LangSmith tracing is enabled for all node executions
+
+4. Response Generation & Logging:
+   - [OutputParser Node]: Processes LLM output, extracts emotion tag and other metadata
+   - [Memory Update Node]: Stores the generated response, emotion tag, and relevant metadata (character, session, timestamp, tags) in the database
+   - Full chat history and responses are logged per session for analytics and retrieval
+
+5. Context Window & Memory System:
+   - [Memory Update Node]: Maintains a context window of recent chat turns for each session (configurable length)
+   - Previous interactions are referenced in prompt composition for continuity
+
+6. Extensibility & Modularity:
+   - Each node (Instruction Loader, Situation Filter, LLM Response, OutputParser, Memory Update) is implemented as a modular function
+   - Nodes can be independently extended, replaced, or tested
+   - Workflow is fully documented and LangSmith tracing provides node-level observability
+
+# Test Strategy:
+- Verify that admin can create/update instructions and they are reflected in real-time responses (Instruction Loader Node)
+- Test that prompt composition and input selection work as expected (Situation Filter, LLM Response Nodes)
+- Confirm that OutputParser Node correctly extracts emotion tags and metadata
+- Ensure Memory Update Node logs responses and maintains conversation context
+- Simulate multi-turn conversations to ensure context window is respected and memory is updated
+- Validate LangSmith tracing shows all node executions and state transitions
+
+- Validate extensibility by swapping out nodes (e.g., emotion parser) without breaking the workflow.
+    You are ${character.name}, ${character.backstory}
+    Your personality traits are: ${character.personalityTraits.join(', ')}
+    
+    Recent conversation history:
+    ${conversationHistory}
+    
+    User message: ${userMessage}
+    
+    Respond as ${character.name} would, maintaining character consistency.
+    Include an emotion tag at the end of your response in [emotion: happy/sad/angry/surprised/neutral] format.
+  `;
+};
+```
+
+# Test Strategy:
+1. Test prompt generation with various character profiles and inputs
+2. Verify emotion classification accuracy across different response types
+3. Measure response generation time and optimize for performance
+4. Test RAG system with sample worldview data
+5. Validate context preservation across multiple interactions
+6. Verify memory system retains appropriate conversation history
+7. Test edge cases like very long inputs or unusual requests
+8. Conduct A/B testing of different prompt structures for quality
+
+# Subtasks:
+## 3.1. LangChain Integration [completed]
+### Dependencies: None
+### Description: Set up LangChain with OpenAI API and implement prompt template system
+### Details:
+
+
+## 3.2. FAISS Vector Database Implementation [in-progress]
+### Dependencies: None
+### Description: Complete the FAISS implementation for worldview storage and retrieval
+### Details:
+
+
+## 3.3. Prompt Management with Jinja2 [completed]
+### Dependencies: None
+### Description: Finalize prompt templates and management system using Jinja2
+### Details:
+
+
+## 3.4. Emotion Classification Improvement [pending]
+### Dependencies: None
+### Description: Enhance the basic emotion classification system for better accuracy and expanded emotion range
+### Details:
+
+
+## 3.5. Memory System Implementation [pending]
+### Dependencies: None
+### Description: Build the conversation history storage and context management system
+### Details:
+
+

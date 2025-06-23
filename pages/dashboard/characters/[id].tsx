@@ -160,18 +160,18 @@ else if (data && typeof data === "object" && "detail" in data && typeof (data as
       setTimeout(() => {
         router.push("/dashboard?tab=character");
       }, 1000);
-    } catch (err: unknown) {
+    } catch (err: any) {
       let msg = "캐릭터 수정 실패";
-      if (err && typeof err === "object" && "response" in err && err.response && typeof err.response === "object" && "data" in err.response) {
-        const data = (err as { response?: { data?: unknown } }).response?.data;
+      if (axios.isAxiosError(err)) {
+        const data = err.response?.data;
         if (typeof data === "string") msg = data;
-        else if (data && typeof data === "object" && "error" in data && typeof (data as {error?: string}).error === "string") msg = (data as {error?: string}).error ?? "";
-        else if (data && typeof data === "object" && "detail" in data && typeof (data as {detail?: string}).detail === "string") msg = (data as {detail?: string}).detail ?? "";
+        else if (typeof data?.error === "string") msg = data.error;
+        else if (typeof data?.detail === "string") msg = data.detail;
         else if (typeof data === "object") msg = JSON.stringify(data);
-      } else if (err instanceof Error && err.message) {
+      } else if (err instanceof Error) {
         msg = err.message;
       }
-      setError("캐릭터 수정 실패: " + msg);
+      setError(msg);
     }
   };
 

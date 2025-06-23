@@ -1,5 +1,15 @@
 import React from 'react';
 import SessionManager from './SessionManager';
+
+// 이미지 URL이 상대경로일 경우 /로 시작하도록 보정(강화)
+function getImageSrc(url?: string | null) {
+  if (!url || typeof url !== 'string' || url.trim() === '') return '/default.png';
+  if (url.startsWith('http')) return url;
+  const normalized = url.startsWith('/') ? url : '/' + url;
+  if (!normalized.startsWith('/')) return '/default.png';
+  return normalized;
+}
+
 import VideoPlayer from './VideoPlayer';
 import ChatLogs from './ChatLogs';
 import { useSession } from './shared/hooks/useSession';
