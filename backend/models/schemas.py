@@ -26,6 +26,7 @@ class AskPayload(BaseModel):
     session_id: str
     viewer_id: str
     history: List[ChatTurn]
+    profile: Optional[dict] = None  # profile(instruction, examples) 허용
 
 class StartSessionPayload(BaseModel):
     pass

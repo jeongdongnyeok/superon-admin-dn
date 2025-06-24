@@ -52,7 +52,53 @@ export default function Playground() {
   const [sessionId, setSessionId] = useState<string | null>(null); // 세션 ID 상태 추가
   const [characterSettings, setCharacterSettings] = useState<{ instruction: string; examples: ExampleQA[] } | null>(null);
   const [isLoadingSettings, setIsLoadingSettings] = useState(false);
+  const [isPlayingTTS, setIsPlayingTTS] = useState(false);
+  const [ttsError, setTTSError] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // 텍스트를 TTS로 변환해 자동 재생하는 함수 (전체 mp3 다운로드 방식)
+  async function playTTSFromText(text: string, voice_id?: string) {
+    setIsPlayingTTS(true);
+    setTTSError(null);
+    try {
+      const res = await fetch(`${FASTAPI_BASE_URL}/tts/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, voice_id }),
+      });
+      if (!res.ok) {
+        let errMsg = 'TTS 변환 실패';
+        try {
+          const err = await res.json();
+          if (err.detail?.message) {
+            errMsg = err.detail.message;
+          } else if (err.detail) {
+            errMsg = err.detail;
+          }
+        } catch {}
+        throw new Error(errMsg);
+      }
+      const audioBlob = await res.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+      const audio = new window.Audio(audioUrl);
+      audioRef.current = audio;
+      audio.onended = () => setIsPlayingTTS(false);
+      audio.onerror = (event) => {
+        setIsPlayingTTS(false);
+        setTTSError('TTS 오디오 재생 실패');
+        console.error('[TTS] 오디오 재생 실패:', event, audio);
+      };
+      audio.play();
+    } catch (e: any) {
+      setIsPlayingTTS(false);
+      setTTSError(e?.message || 'TTS 변환/재생 오류');
+    }
+  }
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -115,23 +161,68 @@ export default function Playground() {
       setIsLoadingSettings(true);
       setCharacterSettings(null);
       try {
-        const res = await fetch(`/api/characters/${char.id}/settings`);
-        if (!res.ok) throw new Error('캐릭터 설정값을 불러오지 못했습니다.');
+        const res = await fetch(`${FASTAPI_BASE_URL}/characters/${char.id}/profile`);
+        if (!res.ok) throw new Error('캐릭터 프로필을 불러오지 못했습니다.');
         const data = await res.json();
         setCharacterSettings({
           instruction: data.instruction || '',
           examples: Array.isArray(data.examples) ? data.examples : [],
         });
-        setChatHistory((prev: any[]) => [...prev, { type: 'info', content: '캐릭터 설정값(instruction/예시) 불러오기 성공.' }]);
+        setChatHistory((prev: any[]) => [...prev, { type: 'info', content: '캐릭터 프로필(instruction/예시) 불러오기 성공.' }]);
       } catch (e) {
         setCharacterSettings(null);
-        setChatHistory((prev: any[]) => [...prev, { type: 'info', content: '캐릭터 설정값(instruction/예시) 불러오기 실패.' }]);
+        setChatHistory((prev: any[]) => [...prev, { type: 'info', content: '캐릭터 프로필(instruction/예시) 불러오기 실패.' }]);
       } finally {
         setIsLoadingSettings(false);
       }
     }
 
   };
+
+  // 프로필 편집 상태
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editInstruction, setEditInstruction] = useState('');
+  const [editExamples, setEditExamples] = useState<ExampleQA[]>([]);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // 프로필 편집 시작
+  const handleEditProfile = () => {
+    setEditInstruction(characterSettings?.instruction || '');
+    setEditExamples(characterSettings?.examples ? [...characterSettings.examples] : []);
+    setIsEditingProfile(true);
+  };
+
+  // 프로필 저장
+  const handleSaveProfile = async () => {
+    if (!selectedCharacter) return;
+    setIsSavingProfile(true);
+    try {
+      const res = await fetch(`${FASTAPI_BASE_URL}/characters/${selectedCharacter.id}/profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instruction: editInstruction,
+          examples: editExamples
+        })
+      });
+      if (!res.ok) throw new Error('프로필 저장 실패');
+      setCharacterSettings({ instruction: editInstruction, examples: editExamples });
+      setIsEditingProfile(false);
+      setChatHistory(prev => [...prev, { type: 'info', content: '프로필 저장 성공!' }]);
+    } catch (e) {
+      setChatHistory(prev => [...prev, { type: 'info', content: '프로필 저장 실패.' }]);
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  // 예시 추가/수정/삭제 함수
+  const handleExampleChange = (idx: number, field: 'user' | 'character', value: string) => {
+    setEditExamples(prev => prev.map((ex, i) => i === idx ? { ...ex, [field]: value } : ex));
+  };
+  const handleAddExample = () => setEditExamples(prev => [...prev, { user: '', character: '' }]);
+  const handleRemoveExample = (idx: number) => setEditExamples(prev => prev.filter((_, i) => i !== idx));
+
 
   const handleStartSession = async () => {
     if (!selectedCharacter) return;
@@ -181,8 +272,6 @@ export default function Playground() {
       return;
     }
 
-
-
     const currentPrompt = prompt;
     setChatHistory(prev => [...prev, { type: 'user', content: currentPrompt }]);
     setPrompt('');
@@ -190,44 +279,104 @@ export default function Playground() {
     setChatHistory(prev => [...prev, { type: 'loading', content: '답변 생성 중...' }]);
 
     try {
-
       // 프롬프트 조합: instruction, examples, user_input 모두 백엔드에 전달
-      const res = await fetch(`${FASTAPI_BASE_URL}/ask_character`, {
+      const requestBody = {
+        id: selectedCharacter.id,
+        session_id: sessionId || `playground-${Date.now()}`,
+        viewer_id: 'playground-user',
+        history: [
+          ...chatHistory
+            .filter(msg => msg.type === 'user' || msg.type === 'bot')
+            .map(msg => ({
+              role: msg.type === 'user' ? 'user' : 'ai',
+              content: msg.content
+            })),
+          { role: 'user', content: currentPrompt }
+        ],
+        profile: {
+          instruction: characterSettings?.instruction || '',
+          examples: (characterSettings?.examples || []).map(qa => ({
+            user: qa.user,
+            character: qa.character
+          }))
+        }
+      };
+      console.log('[PlaygroundTab] requestBody:', requestBody);
+
+      // Call the LangGraph-based endpoint
+      const res = await fetch(`${FASTAPI_BASE_URL}/chat/ask`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: selectedCharacter.id,
-
-          viewer_id: 'playground-user',
-          instruction: characterSettings?.instruction || '',
-          examples: characterSettings?.examples || [],
-          user_input: currentPrompt,
-          history: [
-            ...chatHistory
-              .filter((msg) => msg.type === 'user' || msg.type === 'bot')
-              .map((msg) => ({
-                role: msg.type === 'user' ? 'user' : 'ai',
-                content: msg.content,
-              })),
-            { role: 'user', content: currentPrompt },
-          ]
-        }),
+        body: JSON.stringify(requestBody)
       });
 
-      const data = await res.json();
-      setChatHistory(prev => prev.filter(msg => msg.type !== 'loading'));
+      // Parse the response once
+      let responseData;
+      try {
+        responseData = await res.json();
+      } catch (e) {
+        console.error('Failed to parse response:', e);
+        throw new Error(`응답 파싱 실패: ${e instanceof Error ? e.message : String(e)}`);
+      }
 
       if (!res.ok) {
-        const errorMessage = data?.detail || data?.message || '질문에 대한 답변을 가져오는데 실패했습니다.';
-        throw new Error(errorMessage);
+        // 오류 응답의 상세 정보를 추출하여 사용자에게 보여줍니다.
+        const errorDetail = responseData.detail || responseData.message || '알 수 없는 오류';
+        const errorMessage = typeof errorDetail === 'object' 
+          ? JSON.stringify(errorDetail, null, 2) 
+          : errorDetail;
+        throw new Error(`서버 오류 (${res.status}): ${errorMessage}`);
       }
-      setChatHistory(prev => [...prev, { type: 'bot', content: data.response, emotion: data.emotion }]);
-    } catch (error: unknown) {
-      console.error('Error asking character:', error);
-      const errorMessage = error instanceof Error ? error.message : '질문 처리 중 알 수 없는 오류가 발생했습니다.';
-      setChatHistory(prev => [...prev.filter(msg => msg.type !== 'loading'), { type: 'bot', content: `오류: ${errorMessage}` }]);
+      
+      // Update chat history with the response
+      setChatHistory(prev => [
+        ...prev.filter(msg => msg.type !== 'loading'),
+        { 
+          type: 'bot', 
+          content: responseData.response || 'No response content', 
+          emotion: responseData.emotion || 'neutral' 
+        }
+      ]);
+      // LLM 응답 오면 TTS progressive streaming 자동 재생
+      if (responseData.response) {
+        // 캐릭터별 voice_id를 profile에서 추출하거나 기본값 사용
+        let voice_id = undefined;
+        if (characterSettings && (characterSettings as any).voice_id) {
+          voice_id = (characterSettings as any).voice_id;
+        } else if (selectedCharacter && (selectedCharacter as any).voice_id) {
+          voice_id = (selectedCharacter as any).voice_id;
+        }
+        // '[감정 :'로 시작하는 감정 태그 부분은 TTS에서 제외
+        let ttsText = responseData.response;
+        if (ttsText) {
+          const idx = ttsText.indexOf('[감정 :');
+          if (idx > -1) {
+            ttsText = ttsText.slice(0, idx).trim();
+          }
+        }
+        await playTTSFromText(ttsText, voice_id);
+      }
+
+    } catch (error) {
+      console.error('Error sending message:', error);
+      
+      let errorMessage = '알 수 없는 오류가 발생했습니다.';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'object' && error !== null) {
+        errorMessage = JSON.stringify(error, Object.getOwnPropertyNames(error));
+      }
+      
+      setChatHistory(prev => [
+        ...prev.filter(msg => msg.type !== 'loading'),
+        { 
+          type: 'info',
+          content: `오류가 발생했습니다: ${errorMessage}`
+        }
+      ]);
+    } finally {
+      setIsAsking(false);
     }
-    setIsAsking(false);
   }
 
   return (
@@ -267,7 +416,8 @@ export default function Playground() {
           </div>
 
           {/* 캐릭터 프롬프트/예시 표시 */}
-          {characterSettings && (
+          {/* 프로필 편집/저장 UI */}
+          {characterSettings && !isEditingProfile && (
             <div className="mt-4 p-3 bg-gray-50 border rounded-lg">
               <div className="mb-2">
                 <span className="font-semibold text-gray-700">프롬프트(Instruction):</span>
@@ -289,6 +439,56 @@ export default function Playground() {
                 ) : (
                   <div className="text-gray-400 text-sm">(예시 없음)</div>
                 )}
+              </div>
+              <div className="flex gap-2 mt-3">
+                <button className="bg-blue-600 text-white px-3 py-1 rounded" onClick={handleEditProfile} disabled={isSessionActive}>프로필 수정</button>
+              </div>
+            </div>
+          )}
+          {isEditingProfile && (
+            <div className="mt-4 p-3 bg-yellow-50 border rounded-lg">
+              <div className="mb-2">
+                <span className="font-semibold text-gray-700">프롬프트(Instruction):</span>
+                <textarea
+                  className="w-full border rounded p-2 mt-1 text-sm"
+                  value={editInstruction}
+                  onChange={e => setEditInstruction(e.target.value)}
+                  rows={3}
+                  disabled={isSavingProfile}
+                />
+              </div>
+              <div>
+                <span className="font-semibold text-gray-700">예시 문답:</span>
+                {editExamples.length > 0 ? (
+                  <ul className="space-y-2 mt-1">
+                    {editExamples.map((ex, i) => (
+                      <li key={i} className="flex items-center gap-2">
+                        <input
+                          className="border rounded p-1 text-sm flex-1"
+                          placeholder="Q. 예시 질문"
+                          value={ex.user}
+                          onChange={e => handleExampleChange(i, 'user', e.target.value)}
+                          disabled={isSavingProfile}
+                        />
+                        <input
+                          className="border rounded p-1 text-sm flex-1"
+                          placeholder="A. 예시 답변"
+                          value={ex.character}
+                          onChange={e => handleExampleChange(i, 'character', e.target.value)}
+                          disabled={isSavingProfile}
+                        />
+                        <button className="text-red-600 text-xs" onClick={() => handleRemoveExample(i)} disabled={isSavingProfile}>삭제</button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-gray-400 text-sm">(예시 없음)</div>
+                )}
+                <button className="bg-gray-300 text-xs px-2 py-1 rounded mt-2" onClick={handleAddExample} disabled={isSavingProfile}>예시 추가</button>
+              </div>
+              <div className="flex gap-2 mt-3">
+                <button className="bg-green-600 text-white px-3 py-1 rounded" onClick={handleSaveProfile} disabled={isSavingProfile}>저장</button>
+                <button className="bg-gray-400 text-white px-3 py-1 rounded" onClick={() => setIsEditingProfile(false)} disabled={isSavingProfile}>취소</button>
               </div>
             </div>
           )}
@@ -324,30 +524,38 @@ export default function Playground() {
         {chatHistory.length === 0 ? (
           <div className="text-center text-gray-400">캐릭터와 대화를 시작해보세요!</div>
         ) : (
-          chatHistory.map((msg, idx) => (
-            <div key={idx} className={`my-2 ${msg.type === 'user' ? 'text-right' : 'text-left'}`}>
-              <span
-                className={
-                  msg.type === 'user'
-                    ? 'inline-block bg-blue-100 text-blue-900 rounded px-3 py-2'
-                    : msg.type === 'bot'
-                    ? 'inline-block bg-gray-200 text-gray-800 rounded px-3 py-2 border-l-4 border-blue-400'
-                    : msg.type === 'loading'
-                    ? 'inline-block bg-yellow-100 text-yellow-800 rounded px-3 py-2'
-                    : 'inline-block bg-gray-100 text-gray-500 rounded px-3 py-2'
-                }
-              >
-                {msg.content}
-                {msg.type === 'bot' && msg.emotion && (
-                  <span className="ml-2 text-xs text-pink-600">[{msg.emotion}]</span>
-                )}
-              </span>
-            </div>
-          ))
+          chatHistory.map((msg, idx) => {
+            let prefix = '';
+            if (msg.type === 'user') {
+              prefix = msg.content.trim().toLowerCase().startsWith('q:') ? '' : 'Q: ';
+            } else if (msg.type === 'bot') {
+              prefix = msg.content.trim().toLowerCase().startsWith('a:') ? '' : 'A: ';
+            }
+            return (
+              <div key={idx} className={`my-2 ${msg.type === 'user' ? 'text-right' : 'text-left'}`}>
+                <span
+                  className={
+                    msg.type === 'user'
+                      ? 'inline-block bg-blue-100 text-blue-900 rounded px-3 py-2'
+                      : msg.type === 'bot'
+                      ? 'inline-block bg-gray-200 text-gray-800 rounded px-3 py-2 border-l-4 border-blue-400'
+                      : msg.type === 'loading'
+                      ? 'inline-block bg-yellow-100 text-yellow-800 rounded px-3 py-2'
+                      : 'inline-block bg-gray-100 text-gray-500 rounded px-3 py-2'
+                  }
+                >
+                  <strong>{prefix}</strong>{msg.content}
+                  {msg.type === 'bot' && msg.emotion && (
+                    <span className="ml-2 text-xs text-pink-600">[{msg.emotion}]</span>
+                  )}
+                </span>
+              </div>
+            );
+          })
         )}
       </div>
       {/* 입력창 */}
-      <div className="flex gap-2 mt-2">
+      <div className="flex gap-2 mt-2 items-center">
         <input
           type="text"
           className="flex-1 border rounded px-4 py-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -366,6 +574,13 @@ export default function Playground() {
         >
           전송
         </button>
+        {/* TTS 상태/에러 표시 */}
+        {isPlayingTTS && (
+          <span className="ml-2 text-xs text-blue-600 animate-pulse">음성 재생 중...</span>
+        )}
+        {ttsError && (
+          <span className="ml-2 text-xs text-red-500">{ttsError}</span>
+        )}
       </div>
     </div>
   );

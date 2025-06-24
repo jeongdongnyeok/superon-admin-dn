@@ -37,10 +37,33 @@ def situation_filter(state: GraphState) -> GraphState:
 
 # 4️⃣ LLM 응답 node
 llm = ChatOpenAI(model="gpt-4o")
+
+# 예시 Q&A를 Q/A 쌍으로 포맷하는 함수
+def format_examples(examples):
+    if not examples:
+        return "(예시 없음)"
+    # 배열/문자열 모두 허용
+    if isinstance(examples, str):
+        return examples
+    lines = []
+    for qa in examples:
+        user = qa.get('user') or qa.get('input') or ''
+        character = qa.get('character') or qa.get('output') or ''
+        if user and character:
+            lines.append(f"Q: {user}\nA: {character}")
+    return "\n".join(lines)
+
 prompt_template = ChatPromptTemplate.from_template(
     """
+    [캐릭터 설명]
     {instruction_prompt}
-    \n사용자 입력: {selected_input}\n\n캐릭터로서 자연스럽게 응답하세요. 응답 문장 마지막에 [감정: happy|sad|angry|neutral|surprise|disgust|fear] 형식으로 감정 태그를 붙이세요.
+
+    [예시 문답]
+    {examples}
+
+    [실제 사용자 입력]
+    Q: {selected_input}
+    A: (캐릭터로서 자연스럽게 답변하고 마지막에 [감정: happy|sad|angry|neutral|surprise|disgust|fear] 태그를 붙이세요.)
     """
 )
 llm_chain = prompt_template | llm | StrOutputParser()
@@ -48,6 +71,7 @@ llm_chain = prompt_template | llm | StrOutputParser()
 def llm_response(state: GraphState) -> GraphState:
     response_text = llm_chain.invoke({
         "instruction_prompt": state["instruction_prompt"],
+        "examples": format_examples(state.get("examples", [])),
         "selected_input": state["selected_input"]
     })
     state["response_text"] = response_text

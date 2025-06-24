@@ -10,6 +10,7 @@ from backend.routers.character import router as character_router
 from backend.routers.session import router as session_router
 from backend.routers.tiktok import router as tiktok_router
 from backend.routers.chat import router as chat_router
+from backend.routers.tts import router as tts_router
 
 app = FastAPI()
 
@@ -28,6 +29,7 @@ app.include_router(motion_router)
 app.include_router(session_router)
 app.include_router(tiktok_router)
 app.include_router(chat_router)
+app.include_router(tts_router)
 
 # Always use absolute path for assets directory
 assets_dir = Path(__file__).parent / "assets"

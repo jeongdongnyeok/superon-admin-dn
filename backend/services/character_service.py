@@ -84,3 +84,15 @@ def load_character(payload: CharacterPayload):
             image_url = None
     character["image_url"] = image_url
     return character
+
+def get_character_profile(character_id: str):
+    rows = supabase.table("characters").select("profile").eq("id", character_id).execute()
+    if not rows.data:
+        return None
+    return rows.data[0].get("profile")
+
+def update_character_profile(character_id: str, profile: dict):
+    result = supabase.table("characters").update({"profile": profile}).eq("id", character_id).execute()
+    if result.data and len(result.data) > 0:
+        return True
+    return False
