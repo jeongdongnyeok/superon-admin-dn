@@ -31,6 +31,10 @@ app.include_router(tiktok_router)
 app.include_router(chat_router)
 app.include_router(tts_router)
 
+# Broadcast router 추가
+from backend.routers.broadcast import router as broadcast_router
+app.include_router(broadcast_router)
+
 # Always use absolute path for assets directory
 assets_dir = Path(__file__).parent / "assets"
 assets_dir.mkdir(exist_ok=True)

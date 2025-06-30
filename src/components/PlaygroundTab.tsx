@@ -54,18 +54,20 @@ export default function Playground() {
   const [isLoadingSettings, setIsLoadingSettings] = useState(false);
   const [isPlayingTTS, setIsPlayingTTS] = useState(false);
   const [ttsError, setTTSError] = useState<string | null>(null);
+  // TTS provider selection
+  const [ttsProvider, setTTSProvider] = useState<'elevenlabs' | 'gemini'>('elevenlabs');
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   // 텍스트를 TTS로 변환해 자동 재생하는 함수 (전체 mp3 다운로드 방식)
-  async function playTTSFromText(text: string, voice_id?: string) {
+  async function playTTSFromText(text: string, voice_id?: string, provider: 'elevenlabs' | 'gemini' = 'elevenlabs') {
     setIsPlayingTTS(true);
     setTTSError(null);
     try {
       const res = await fetch(`${FASTAPI_BASE_URL}/tts/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, voice_id }),
+        body: JSON.stringify({ text, voice_id, provider }), // provider 전달
       });
       if (!res.ok) {
         let errMsg = 'TTS 변환 실패';
@@ -354,7 +356,7 @@ export default function Playground() {
             ttsText = ttsText.slice(0, idx).trim();
           }
         }
-        await playTTSFromText(ttsText, voice_id);
+        await playTTSFromText(ttsText, voice_id, ttsProvider);
       }
 
     } catch (error) {
@@ -493,7 +495,20 @@ export default function Playground() {
             </div>
           )}
 
-          <div className="flex gap-2 mt-2">
+          {/* TTS Provider Selection UI */}
+          <div className="flex flex-col gap-2 mt-2">
+            <div className="flex items-center gap-4 mb-2">
+              <label className="font-semibold text-gray-700">음성 변환 엔진:</label>
+              <select
+                className="border rounded px-2 py-1"
+                value={ttsProvider}
+                onChange={e => setTTSProvider(e.target.value as 'elevenlabs' | 'gemini')}
+                disabled={isSessionActive}
+              >
+                <option value="elevenlabs">ElevenLabs</option>
+                <option value="gemini">Google Gemini</option>
+              </select>
+            </div>
             {!isSessionActive && (
               <button
                 className="bg-green-600 text-white px-4 py-2 rounded"

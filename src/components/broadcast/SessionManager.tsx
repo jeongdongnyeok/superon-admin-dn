@@ -12,6 +12,7 @@ interface SessionManagerProps {
   onRoomIdChange: (id: string) => void;
   roomIdConfirmed: boolean;
   onRoomIdConfirm: () => void;
+  isLive?: boolean; // 방송 감지 상태 (BroadcastTab에서 전달)
   error?: string | null;
 }
 
@@ -26,6 +27,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({
   onRoomIdChange,
   roomIdConfirmed,
   onRoomIdConfirm,
+  isLive,
   error,
 }) => {
   return (
@@ -69,7 +71,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({
         <button
           className="flex-1 bg-green-500 text-white px-4 py-2 rounded font-bold"
           onClick={onStart}
-          disabled={sessionStatus === 'start' || !selectedCharacter || !roomIdConfirmed}
+          disabled={sessionStatus === 'start' || !selectedCharacter || !roomIdConfirmed || !isLive}
         >
           방송 시작
         </button>
@@ -82,6 +84,11 @@ const SessionManager: React.FC<SessionManagerProps> = ({
           </button>
         )}
       </div>
+      {/* 방송 감지 안내 */}
+      {roomIdConfirmed && !isLive && (
+        <div className="mt-2 text-red-500 text-sm">방송이 감지되지 않아 방송 시작이 불가능합니다.</div>
+      )}
+
       <div className="mt-2 text-sm text-gray-700">
         세션 상태: {sessionStatus === 'idle' ? '대기' : sessionStatus === 'start' ? '방송 중' : '종료'}
       </div>

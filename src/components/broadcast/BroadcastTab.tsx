@@ -16,9 +16,16 @@ import { useSession } from './shared/hooks/useSession';
 import { useMotionFiles } from './shared/hooks/useMotionFiles';
 import { Character, GiftEvent, ChatMessage } from './shared/types';
 import { useCharacters } from './shared/hooks/useCharacters';
-import axios from 'axios';
+import api from '../../api';
 
 const BroadcastTab: React.FC = () => {
+
+  // Archived event logs state
+  const [archivedEvents, setArchivedEvents] = React.useState<any[]>([]);
+  const [archivedLoading, setArchivedLoading] = React.useState(false);
+  const [archivedError, setArchivedError] = React.useState<string | null>(null);
+  const [showArchived, setShowArchived] = React.useState(false);
+
   // 진단 로그: 컴포넌트 마운트 시
   React.useEffect(() => {
     console.log('[BroadcastTab] 컴포넌트 마운트');
@@ -31,26 +38,82 @@ const BroadcastTab: React.FC = () => {
     if (characterError) console.error('[BroadcastTab] characterError:', characterError);
   }, [characters, characterError]);
 
+
   // 세션/캐릭터/Room ID 관리
   const {
     sessionStatus,
+    setSessionStatus,
     roomId,
     setRoomId,
     roomIdConfirmed,
+    setRoomIdConfirmed,
     startBroadcast,
     endBroadcast,
     registerRoomId,
+    sessionId,
+    setSessionId,
+    selectedCharacter,
+    setSelectedCharacter
   } = useSession();
 
-  // 모션 파일/영상 관리
-  // 캐릭터 선택 상태를 명확하게 관리
-  const [selectedCharacterId, setSelectedCharacterId] = React.useState<string>('');
+  // 방송 가능 상태 관리
+  const [isLive, setIsLive] = React.useState<boolean>(false);
 
-  // 진단 로그: selectedCharacterId 변경 시
+  // Room ID 등록 및 방송 상태 확인
+  const handleRoomIdConfirm = async () => {
+    if (!roomId) return;
+    try {
+      const res = await api.get('/broadcast/status', { params: { room_id: roomId } });
+      if (res.data.is_live) {
+        setIsLive(true);
+        setRoomIdConfirmed(true);
+        setSessionStatus('idle'); // 방송 시작 가능 상태(allowed: 'idle', 'start', 'end')
+        alert('방송이 감지되었습니다. 방송을 시작할 수 있습니다.');
+      } else {
+        setIsLive(false);
+        setRoomIdConfirmed(false);
+        setSessionStatus('idle');
+        alert(res.data.detail || '입력한 Room ID에서 현재 방송이 감지되지 않습니다.');
+      }
+    } catch (err: any) {
+      setIsLive(false);
+      setRoomIdConfirmed(false);
+      setSessionStatus('idle');
+      // 2번: 에러 전체를 콘솔에 출력
+      console.error('Room ID 등록 에러:', err, err?.response);
+      alert(err?.response?.data?.detail || err?.message || '방송 상태 확인 중 오류가 발생했습니다.');
+    }
+  };
+
+  // Fetch archived events from backend
+  const fetchArchivedEvents = React.useCallback(async () => {
+    if (!roomId) {
+      setArchivedError('Room ID가 없습니다.');
+      return;
+    }
+    setArchivedLoading(true);
+    setArchivedError(null);
+    try {
+      // sessionId: useSession 훅에서 관리 필요 (아래는 예시, 실제 sessionId 변수명에 맞게 수정)
+      const sessionId = undefined; // TODO: 세션 ID를 useSession에서 받아와야 함
+      const params: Record<string, string> = { room_id: roomId };
+      if (sessionId) params.session_id = sessionId;
+      const res = await api.get('/broadcast/events', { params });
+      setArchivedEvents(res.data.events || []);
+      setShowArchived(true);
+    } catch (err: any) {
+      setArchivedError(err?.response?.data?.detail || '이벤트 로그를 불러오지 못했습니다.');
+    } finally {
+      setArchivedLoading(false);
+    }
+  }, [roomId, sessionId]);
+
+  // 모션 파일/영상 관리 (selectedCharacter에서 id만 추출)
   React.useEffect(() => {
-    console.log('[BroadcastTab] selectedCharacterId:', selectedCharacterId);
-  }, [selectedCharacterId]);
-
+    if (selectedCharacter) {
+      console.log('[BroadcastTab] selectedCharacter:', selectedCharacter.id);
+    }
+  }, [selectedCharacter]);
 
   const {
     motionFiles,
@@ -59,7 +122,7 @@ const BroadcastTab: React.FC = () => {
     isGiftMotion,
     playNextGift,
     giftQueue,
-  } = useMotionFiles(selectedCharacterId || null);
+  } = useMotionFiles(selectedCharacter ? selectedCharacter.id : null);
 
   // 진단 로그: useMotionFiles에서 motionFiles, selectedMotion 등 변경 시
   React.useEffect(() => {
@@ -72,32 +135,72 @@ const BroadcastTab: React.FC = () => {
   const tiktokSocketRef = React.useRef<WebSocket | null>(null);
 
   // Room ID 등록 시 TikTok 방송 시작 및 WebSocket 연결
-  const handleStartTiktok = async () => {
-    if (!roomId) return;
+  // 방송중 여부 체크 함수
+  const checkRoomLiveStatus = async (roomId: string) => {
     try {
-      await axios.post('/tiktok/start', { unique_id: roomId });
-      // WebSocket 연결
-      if (tiktokSocketRef.current) tiktokSocketRef.current.close();
-      const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      const wsUrl = `${wsProtocol}://${window.location.host.replace(/^https?:\/\//, '')}/ws/tiktok`;
-      const ws = new window.WebSocket(wsUrl);
-      tiktokSocketRef.current = ws;
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          setTiktokChats(prev => [...prev, data]);
-        } catch (err) {
-          console.error('[FRONTEND] WebSocket 메시지 파싱 실패:', err);
-        }
-      };
-      ws.onclose = () => {
-        tiktokSocketRef.current = null;
-        console.log('[FRONTEND] WebSocket 연결 종료');
-      };
+      // (예시) /broadcast/status API 호출, 실제 구현에 맞게 수정 필요
+      const res = await api.get('/broadcast/status', { params: { room_id: roomId } });
+      return res.data.is_live;
     } catch {
-      alert('틱톡 방송 시작에 실패했습니다.');
+      return false;
     }
   };
+
+  // 방송 시작 버튼 핸들러
+  const handleStartBroadcast = async () => {
+    if (!selectedCharacter) {
+      alert('캐릭터를 먼저 선택하세요.');
+      return;
+    }
+    if (!roomId) {
+      alert('Room ID를 입력하세요.');
+      return;
+    }
+    if (!isLive) {
+      alert('입력한 Room ID에서 현재 방송이 감지되지 않습니다.');
+      return;
+    }
+    try {
+      await startBroadcast(selectedCharacter); // useSession 훅의 startBroadcast 호출
+      alert('방송이 시작되었습니다.');
+      setSessionStatus('start');
+      setShowArchived(false);
+    } catch (e: any) {
+      alert(e?.response?.data?.detail || '방송 시작 중 오류가 발생했습니다.');
+      setShowArchived(false);
+    }
+  };
+
+  // 방송 종료 버튼 핸들러 (중복 제거 및 WebSocket 해제 포함)
+  const handleEndBroadcast = async () => {
+    try {
+      if (!roomId) {
+        alert('Room ID가 없습니다.');
+        return;
+      }
+      if (!sessionId) {
+        alert('Session ID가 없습니다.');
+        return;
+      }
+      // 반드시 await로 호출하여 서버에 /broadcast/stop API가 트리거되도록 보장
+      await endBroadcast();
+      alert('방송이 정상적으로 종료 및 아카이브 되었습니다.');
+      // 상태 초기화
+      setTiktokChats([]);
+      setShowArchived(false);
+      if (typeof setSessionStatus === 'function') setSessionStatus('idle');
+      if (typeof setSessionId === 'function') setSessionId('');
+      if (typeof setRoomId === 'function') setRoomId('');
+      if (tiktokSocketRef.current) {
+        tiktokSocketRef.current.close();
+        tiktokSocketRef.current = null;
+        console.log('[BroadcastTab] 방송 종료: WebSocket 연결 해제');
+      }
+    } catch (e: any) {
+      alert(e?.response?.data?.detail || e?.message || '방송 종료/아카이브 요청 중 오류가 발생했습니다.');
+    }
+  };
+
 
   // gift 메시지 수신 시 giftQueue에 push (tiktokChats 기준)
   React.useEffect(() => {
@@ -127,47 +230,32 @@ const BroadcastTab: React.FC = () => {
     console.log('[BroadcastTab] motionFiles changed:', motionFiles);
   }, [motionFiles]);
 
-  // 방송 종료 시 WebSocket 연결 해제 및 채팅 로그 초기화
-  const handleEndBroadcast = () => {
-    endBroadcast();
-    if (tiktokSocketRef.current) {
-      tiktokSocketRef.current.close();
-      tiktokSocketRef.current = null;
-      console.log('[BroadcastTab] 방송 종료: WebSocket 연결 해제');
-    }
-    setTiktokChats([]);
-  };
-
   return (
-    <>
-      <div className="broadcast-tab w-full h-full flex flex-row">
-      {/* Session Manager */}
-      <div className="w-1/4 h-full">
-        <SessionManager
-          characters={characters}
-          selectedCharacter={characters.find(c => c.id === selectedCharacterId) || null}
-          onCharacterSelect={(character: Character) => {
-            console.log('[BroadcastTab] [SessionManager] onCharacterSelect fired:', character.id, character.name);
-            setSelectedCharacterId(character.id);
-          }}
-          sessionStatus={sessionStatus}
-          onStart={() => {
-            const character = characters.find(c => c.id === selectedCharacterId);
-            if (character) {
-              startBroadcast(character);
-            }
-          }}
-          onEnd={handleEndBroadcast}
-          roomId={roomId}
-          onRoomIdChange={setRoomId}
-          roomIdConfirmed={roomIdConfirmed}
-          onRoomIdConfirm={() => {
-            registerRoomId(roomId);
-            handleStartTiktok();
-          }}
-          error={characterError}
-        />
-      </div>
+    <div>
+      {/*
+        SessionManager is responsible for rendering Room ID input and 방송 시작/종료 buttons.
+        Remove duplicate controls below to prevent double rendering.
+      */}
+      <SessionManager
+        characters={characters}
+        selectedCharacter={selectedCharacter}
+        onCharacterSelect={setSelectedCharacter}
+        sessionStatus={sessionStatus}
+        onStart={handleStartBroadcast}
+        onEnd={handleEndBroadcast}
+        roomId={roomId}
+        onRoomIdChange={setRoomId}
+        roomIdConfirmed={roomIdConfirmed}
+        // Room ID 등록 버튼 클릭 시 방송 상태 API 호출
+        onRoomIdConfirm={handleRoomIdConfirm}
+        isLive={isLive}
+        error={characterError}
+        // 방송 시작 버튼 활성화 조건: isLive && sessionStatus !== 'start' && selectedCharacter
+        // 방송 종료 버튼 활성화 조건: sessionStatus === 'start' && roomId && sessionId
+      />
+
+      {/* Removed duplicate Room ID input and 방송 시작/종료 버튼 here */}
+
       {/* Video Player */}
       <div className="w-2/4 h-full flex flex-col">
         <VideoPlayer
@@ -178,30 +266,21 @@ const BroadcastTab: React.FC = () => {
           playNextGift={playNextGift}
         />
       </div>
+
       {/* Chat Logs */}
       <div className="w-1/4 h-full">
-        <ChatLogs messages={tiktokChats} />
+        <ChatLogs
+          messages={tiktokChats}
+          sessionStatus={sessionStatus}
+          archivedEvents={archivedEvents}
+          archivedLoading={archivedLoading}
+          archivedError={archivedError}
+          sessionId={sessionId ?? undefined}
+          fetchArchivedEvents={fetchArchivedEvents}
+        />
       </div>
     </div>
-    {/* 하단 모션 파일 리스트 */}
-    <div className="w-full mt-6 px-8 py-3 bg-gray-50 border-t flex flex-row flex-wrap gap-2 items-center justify-start">
-      {motionFiles.length === 0 ? (
-        <span className="text-gray-400 text-xs">모션 파일이 없습니다.</span>
-      ) : (
-        motionFiles.map(file => (
-          <button
-            key={file.url}
-            className={`px-3 py-2 rounded flex items-center gap-2 text-xs font-mono border transition-colors duration-100 ${selectedMotion === file.url ? 'bg-blue-50 border-blue-400 text-blue-800 font-bold' : 'border-gray-300 bg-white hover:bg-gray-100'}`}
-            onClick={() => setMotionByTag(file.tag)}
-          >
-            <span>{file.name}</span>
-            <span className="text-gray-400 ml-2">[{file.tag}]</span>
-          </button>
-        ))
-      )}
-    </div>
-    </>
   );
-};
+}
 
 export default BroadcastTab;
