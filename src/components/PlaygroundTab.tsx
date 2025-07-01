@@ -120,7 +120,7 @@ export default function Playground() {
         setChatHistory([{ type: 'info', content: `캐릭터 목록 로딩 실패: ${error.message}` }]);
         return
       }
-      setCharacters((data as Character[]) || [])
+      setCharacters(data as Character[])
     }
     fetchCharacters()
   }, [])
@@ -170,10 +170,10 @@ export default function Playground() {
           instruction: data.instruction || '',
           examples: Array.isArray(data.examples) ? data.examples : [],
         });
-        setChatHistory((prev: any[]) => [...prev, { type: 'info', content: '캐릭터 프로필(instruction/예시) 불러오기 성공.' }]);
-      } catch (e) {
+        setChatHistory((prev) => [...prev, { type: 'info', content: '캐릭터 프로필(instruction/예시) 불러오기 성공.' }]);
+      } catch (error) {
         setCharacterSettings(null);
-        setChatHistory((prev: any[]) => [...prev, { type: 'info', content: '캐릭터 프로필(instruction/예시) 불러오기 실패.' }]);
+        setChatHistory((prev) => [...prev, { type: 'info', content: '캐릭터 프로필(instruction/예시) 불러오기 실패.' }]);
       } finally {
         setIsLoadingSettings(false);
       }
@@ -210,9 +210,9 @@ export default function Playground() {
       if (!res.ok) throw new Error('프로필 저장 실패');
       setCharacterSettings({ instruction: editInstruction, examples: editExamples });
       setIsEditingProfile(false);
-      setChatHistory(prev => [...prev, { type: 'info', content: '프로필 저장 성공!' }]);
-    } catch (e) {
-      setChatHistory(prev => [...prev, { type: 'info', content: '프로필 저장 실패.' }]);
+      setChatHistory((prev) => [...prev, { type: 'info', content: '프로필 저장 성공!' }]);
+    } catch (error) {
+      setChatHistory((prev) => [...prev, { type: 'info', content: '프로필 저장 실패.' }]);
     } finally {
       setIsSavingProfile(false);
     }
@@ -220,10 +220,10 @@ export default function Playground() {
 
   // 예시 추가/수정/삭제 함수
   const handleExampleChange = (idx: number, field: 'user' | 'character', value: string) => {
-    setEditExamples(prev => prev.map((ex, i) => i === idx ? { ...ex, [field]: value } : ex));
+    setEditExamples((prev) => prev.map((ex, i) => i === idx ? { ...ex, [field]: value } : ex));
   };
-  const handleAddExample = () => setEditExamples(prev => [...prev, { user: '', character: '' }]);
-  const handleRemoveExample = (idx: number) => setEditExamples(prev => prev.filter((_, i) => i !== idx));
+  const handleAddExample = () => setEditExamples((prev) => [...prev, { user: '', character: '' }]);
+  const handleRemoveExample = (idx: number) => setEditExamples((prev) => prev.filter((_, i) => i !== idx));
 
 
   const handleStartSession = async () => {

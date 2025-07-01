@@ -7,11 +7,7 @@ interface ExampleQA {
   character: string;
 }
 
-interface CharacterSettingsProps {
-  // If using Next.js pages, this can be empty or removed
-}
-
-const CharacterSettings = (props: CharacterSettingsProps) => {
+const CharacterSettings = () => {
   const router = useRouter();
   const { id } = router.query;
 

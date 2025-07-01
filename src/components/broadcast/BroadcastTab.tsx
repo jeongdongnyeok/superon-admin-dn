@@ -193,6 +193,7 @@ const BroadcastTab: React.FC = () => {
     motionFiles,
     selectedMotion,
     setMotionByTag,
+    setSelectedMotion,
     isGiftMotion,
     playNextGift,
     giftQueue,
@@ -379,6 +380,7 @@ return (
           isGiftMotion={isGiftMotion}
           playNextGift={playNextGift}
           motionTag={motionTag}
+          characterImage={getImageSrc(selectedCharacter?.image_url)}
         />
       </div>
       {/* 우측: 채팅 로그 패널 */}

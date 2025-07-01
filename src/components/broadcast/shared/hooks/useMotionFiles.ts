@@ -108,14 +108,25 @@ export const useMotionFiles = (characterId: string | null) => {
       });
   }, [characterId]);
 
+  // 순차 neutral 반복용
+  const lastNeutralIdx = useRef<number>(-1);
+
   // 모션 변경
   const setMotionByTag = useCallback((tag: string, source?: string) => {
     console.log(`[useMotionFiles] setMotionByTag 호출: tag=${tag}, source=${source || 'unknown'}`);
     if (!motionFiles || motionFiles.length === 0) return;
     const candidates = motionFiles.filter((f: MotionFile) => f.tag === tag);
     if (candidates.length > 0) {
-      const chosen = candidates[Math.floor(Math.random() * candidates.length)];
-      console.log(`[useMotionFiles] setMotionByTag: 재생할 파일 선택됨 (tag=${tag}, url=${chosen.url}, name=${chosen.name})`);
+      let chosen = candidates[0];
+      if (tag === 'neutral' && candidates.length > 1) {
+        // 순차적으로 인덱스 증가
+        lastNeutralIdx.current = (lastNeutralIdx.current + 1) % candidates.length;
+        chosen = candidates[lastNeutralIdx.current];
+      } else if (tag === 'neutral') {
+        lastNeutralIdx.current = 0;
+        chosen = candidates[0];
+      }
+      console.log(`[useMotionFiles] setMotionByTag: 재생할 파일 선택됨 (tag=${tag}, url=${chosen.url}, name=${chosen.name}, idx=${lastNeutralIdx.current})`);
       setSelectedMotion(chosen.url);
       setIsGiftMotion(tag.startsWith('gift'));
     } else {
