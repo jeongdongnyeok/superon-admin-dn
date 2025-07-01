@@ -27,7 +27,7 @@ const CharacterSettings = () => {
         setInstruction(res.data.instruction || '');
         setExamples(res.data.examples?.length ? res.data.examples : [{ user: '', character: '' }]);
       })
-      .catch(e => {
+      .catch(() => {
         setError('설정 정보를 불러오는데 실패했습니다.');
       })
       .finally(() => setLoading(false));

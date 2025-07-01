@@ -160,7 +160,7 @@ else if (data && typeof data === "object" && "detail" in data && typeof (data as
       setTimeout(() => {
         router.push("/dashboard?tab=character");
       }, 1000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       let msg = "캐릭터 수정 실패";
       if (axios.isAxiosError(err)) {
         const data = err.response?.data;

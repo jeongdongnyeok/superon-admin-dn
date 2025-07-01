@@ -125,7 +125,7 @@ export default function Playground() {
     fetchCharacters()
   }, [])
 
-  const handleCharacterChange = async (event: ChangeEvent<HTMLSelectElement>) => {
+  const handleCharacterChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
     if (!event || !event.target) return;
     const target = event.target as HTMLSelectElement;
     const characterId = target.value;

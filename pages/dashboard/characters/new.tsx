@@ -175,7 +175,7 @@ export default function CharacterNewForm() {
       } else {
         setError("캐릭터 생성은 성공했으나, id를 반환받지 못했습니다.");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       let msg = "캐릭터 생성에 실패했습니다.";
       if (axios.isAxiosError(err)) {
         const data = err.response?.data;
