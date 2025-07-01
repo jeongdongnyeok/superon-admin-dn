@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import SessionManager from './SessionManager';
+import TTSInput from './TTSInput';
 
 // 이미지 URL이 상대경로일 경우 /로 시작하도록 보정(강화)
 function getImageSrc(url?: string | null) {
@@ -19,6 +20,79 @@ import { useCharacters } from './shared/hooks/useCharacters';
 import api from '../../api';
 
 const BroadcastTab: React.FC = () => {
+  // TTS 입력/재생 상태
+  const [ttsLoading, setTTSLoading] = useState(false);
+  const [ttsPlaying, setTTSPlaying] = useState(false);
+  const [motionTag, setMotionTag] = useState<'neutral' | 'talking'>('neutral');
+  const [autoResponse, setAutoResponse] = useState(false); // auto_response 토글 상태
+  // TTS 입력 로그 상태
+  const [ttsInputLogs, setTTSInputLogs] = useState<{ timestamp: number, text: string }[]>([]);
+
+  // TTS 입력 및 재생 핸들러
+  const handleTTSSend = async (text: string) => {
+    if (!text.trim()) return;
+    setTTSLoading(true);
+    setMotionTag('talking');
+    const timestamp = Date.now();
+    try {
+      // 1. TTS 입력 로그에 추가
+      setTTSInputLogs(prev => [...prev, { timestamp, text }]);
+      // 2. TTS 스트림 요청 및 재생
+      await playTTSStream(text);
+      // 3. 입력값+timestamp 저장
+      await sendTTSLog(text, timestamp);
+    } catch (e) {
+      // 에러 처리 및 알림
+      alert('TTS 재생 또는 저장 중 오류가 발생했습니다.');
+    } finally {
+      setTTSLoading(false);
+      setMotionTag('neutral');
+    }
+  };
+
+  // TTS 오디오 스트림 재생 함수
+  const playTTSStream = async (text: string) => {
+    setTTSPlaying(true);
+    try {
+      const res = await fetch('http://localhost:8000/tts/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.body) throw new Error('TTS 스트림 응답이 없습니다.');
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const source = audioContext.createBufferSource();
+      const reader = res.body.getReader();
+      let chunks: Uint8Array[] = [];
+      let done = false;
+      while (!done) {
+        const { value, done: doneReading } = await reader.read();
+        if (value) chunks.push(value);
+        done = doneReading;
+      }
+      const arrayBuffer = await new Blob(chunks).arrayBuffer();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      source.buffer = audioBuffer;
+      source.connect(audioContext.destination);
+      source.start();
+      await new Promise(resolve => { source.onended = resolve; });
+    } finally {
+      setTTSPlaying(false);
+    }
+  };
+
+  // 입력값+timestamp 저장 함수
+  const sendTTSLog = async (text: string, timestamp: number) => {
+    try {
+      await fetch('/api/tts-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, timestamp, room_id: roomId, session_id: sessionId }),
+      });
+    } catch (e) {
+      // 실패해도 치명적이지 않으므로 무시
+    }
+  };
 
   // Archived event logs state
   const [archivedEvents, setArchivedEvents] = React.useState<any[]>([]);
@@ -188,6 +262,7 @@ const BroadcastTab: React.FC = () => {
       // 상태 초기화
       setTiktokChats([]);
       setShowArchived(false);
+      setTTSInputLogs([]); // 방송 종료 시 TTS 입력 로그 초기화
       if (typeof setSessionStatus === 'function') setSessionStatus('idle');
       if (typeof setSessionId === 'function') setSessionId('');
       if (typeof setRoomId === 'function') setRoomId('');
@@ -226,61 +301,128 @@ const BroadcastTab: React.FC = () => {
     }
   }, [tiktokChats, giftQueue, isGiftMotion, playNextGift]);
 
-  React.useEffect(() => {
-    console.log('[BroadcastTab] motionFiles changed:', motionFiles);
-  }, [motionFiles]);
 
-  return (
-    <div>
-      {/*
-        SessionManager is responsible for rendering Room ID input and 방송 시작/종료 buttons.
-        Remove duplicate controls below to prevent double rendering.
-      */}
+// gift 메시지 수신 시 giftQueue에 push (tiktokChats 기준)
+React.useEffect(() => {
+  // 진단: tiktokChats와 giftMsgs를 무조건 출력
+  console.log('[BroadcastTab] tiktokChats 전체:', tiktokChats);
+  const giftMsgs = tiktokChats.filter(msg => msg.type === 'gift');
+  console.log('[BroadcastTab] giftMsgs:', giftMsgs);
+  if (giftMsgs.length > 0) {
+    console.log('[BroadcastTab] gift 채팅 메시지 감지:', giftMsgs);
+    giftMsgs.forEach(gift => {
+      const motionTag = gift.motion_tag || '';
+      if (!giftQueue.current.some((q: GiftEvent) => q.motion_tag === motionTag && q.count === (gift.repeat_count || 1))) {
+        console.log('[BroadcastTab] giftQueue에 push:', { motion_tag: motionTag, count: gift.repeat_count || 1, gift });
+        giftQueue.current.push({ motion_tag: motionTag, count: gift.repeat_count || 1 });
+      } else {
+        console.log('[BroadcastTab] 이미 giftQueue에 존재:', { motion_tag: motionTag, count: gift.repeat_count || 1 });
+      }
+    });
+    if (!isGiftMotion) {
+      console.log('[BroadcastTab] playNextGift 호출 (isGiftMotion=false)');
+      playNextGift();
+    }
+  }
+}, [tiktokChats, giftQueue, isGiftMotion, playNextGift]);
+
+React.useEffect(() => {
+  console.log('[BroadcastTab] motionFiles changed:', motionFiles);
+}, [motionFiles]);
+
+return (
+  <div className="w-full min-h-screen flex flex-col bg-gray-100 p-4 gap-4">
+    {/* 상단 설정 영역 */}
+    <div className="broadcast-setting w-full mb-2">
       <SessionManager
         characters={characters}
         selectedCharacter={selectedCharacter}
-        onCharacterSelect={setSelectedCharacter}
-        sessionStatus={sessionStatus}
-        onStart={handleStartBroadcast}
-        onEnd={handleEndBroadcast}
+        setSelectedCharacter={setSelectedCharacter}
         roomId={roomId}
-        onRoomIdChange={setRoomId}
+        setRoomId={setRoomId}
         roomIdConfirmed={roomIdConfirmed}
-        // Room ID 등록 버튼 클릭 시 방송 상태 API 호출
-        onRoomIdConfirm={handleRoomIdConfirm}
-        isLive={isLive}
-        error={characterError}
-        // 방송 시작 버튼 활성화 조건: isLive && sessionStatus !== 'start' && selectedCharacter
-        // 방송 종료 버튼 활성화 조건: sessionStatus === 'start' && roomId && sessionId
+        setRoomIdConfirmed={setRoomIdConfirmed}
+        sessionStatus={sessionStatus}
+        setSessionStatus={setSessionStatus}
+        startBroadcast={handleStartBroadcast}
+        endBroadcast={handleEndBroadcast}
+        registerRoomId={handleRoomIdConfirm}
+        autoResponse={autoResponse}
+        setAutoResponse={setAutoResponse}
+        sessionId={sessionId}
       />
+      {/* room_id 등록 후에만 auto_response 토글 노출 */}
+      {roomIdConfirmed && (
+        <div className="flex items-center gap-2 p-2">
+          <label htmlFor="auto-response-toggle" className="font-semibold">자동 응답</label>
+          <button
+            id="auto-response-toggle"
+            className={`px-4 py-1 rounded ${autoResponse ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-700'}`}
+            onClick={() => setAutoResponse(v => !v)}
+          >
+            {autoResponse ? 'ON' : 'OFF'}
+          </button>
+        </div>
+      )}
+    </div>
 
-      {/* Removed duplicate Room ID input and 방송 시작/종료 버튼 here */}
-
-      {/* Video Player */}
-      <div className="w-2/4 h-full flex flex-col">
+    {/* 본문 영역 */}
+    {/* 본문 영역 (좌우 2열) */}
+    <div className="main-content w-full h-full flex flex-row items-stretch overflow-x-auto">
+      {/* 좌측: 영상 클립 */}
+      <div className="video-player w-1/2 min-w-0 h-full flex flex-col">
+        <h3 className="font-bold text-lg">Video Clip Player</h3>
         <VideoPlayer
           motionFiles={Array.isArray(motionFiles) ? motionFiles : []}
           selectedMotion={selectedMotion || ''}
           setMotionByTag={setMotionByTag}
           isGiftMotion={isGiftMotion}
           playNextGift={playNextGift}
+          motionTag={motionTag}
         />
       </div>
-
-      {/* Chat Logs */}
-      <div className="w-1/4 h-full">
-        <ChatLogs
-          messages={tiktokChats}
-          sessionStatus={sessionStatus}
-          archivedEvents={archivedEvents}
-          archivedLoading={archivedLoading}
-          archivedError={archivedError}
-          sessionId={sessionId ?? undefined}
-          fetchArchivedEvents={fetchArchivedEvents}
-        />
+      {/* 우측: 채팅 로그 패널 */}
+      <div className="chat-log-panel w-1/2 min-w-0 h-full flex flex-col">
+        <h3 className="font-bold text-lg mb-2">Chat Log Panel</h3>
+        <div className="chat-messages flex-1 overflow-y-auto bg-white rounded border p-2 mb-2 min-h-[120px]">
+          <ChatLogs
+            messages={tiktokChats}
+            sessionStatus={sessionStatus}
+            archivedEvents={archivedEvents}
+            archivedLoading={archivedLoading}
+            archivedError={archivedError}
+            sessionId={sessionId ?? undefined}
+            fetchArchivedEvents={fetchArchivedEvents}
+          />
+        </div>
+        {/* TTS 입력 로그 및 입력창 (auto_response OFF일 때만 노출) */}
+        {autoResponse === false && (
+          <>
+            <div className="bg-gray-50 rounded border p-2 text-sm mb-2" style={{ minHeight: 60 }}>
+              {ttsInputLogs.length === 0 ? (
+                <div className="text-gray-400 text-center">TTS 입력 로그가 없습니다.</div>
+              ) : (
+                ttsInputLogs.map((log, idx) => (
+                  <div key={idx} className="mb-1 whitespace-pre-line">
+                    {'{'}{new Date(log.timestamp).toLocaleTimeString()} {'}'}\n{log.text}
+                  </div>
+                ))
+              )}
+            </div>
+            <TTSInput
+              onSend={handleTTSSend}
+              loading={ttsLoading}
+              playing={ttsPlaying}
+            />
+          </>
+        )}
       </div>
     </div>
-  );
+
+  </div>
+);
+
 }
 
 export default BroadcastTab;
+

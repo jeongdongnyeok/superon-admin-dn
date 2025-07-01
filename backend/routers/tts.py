@@ -35,7 +35,7 @@ async def tts_stream(request: Request):
         clean_text = clean_response_text(text)
 
     if provider == "elevenlabs":
-        voice_id = data.get("voice_id") or DEFAULT_VOICE_ID
+        voice_id = DEFAULT_VOICE_ID
         if not ELEVENLABS_API_KEY:
             raise HTTPException(status_code=500, detail="ElevenLabs API 키가 설정되지 않았습니다.")
 

@@ -40,8 +40,7 @@ const ChatLogs: React.FC<ChatLogsProps> = ({
     <div>
       <div
         ref={scrollRef}
-        className="chat-logs p-2 h-full overflow-y-auto bg-gray-900 border-l border-gray-700 rounded text-xs font-mono"
-        style={{ minHeight: 240, maxHeight: 400 }}
+        className="chat-logs p-2 h-full min-h-0 w-full overflow-y-auto bg-gray-900 border-l border-gray-700 rounded text-xs font-mono"
       >
         <div className="font-bold text-white mb-2">실시간 채팅 콘솔</div>
         <ul className="space-y-1">

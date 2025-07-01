@@ -4,29 +4,39 @@ import { Character, SessionStatus } from './shared/types';
 interface SessionManagerProps {
   characters: Character[];
   selectedCharacter: Character | null;
-  onCharacterSelect: (character: Character) => void;
-  sessionStatus: SessionStatus;
-  onStart: () => void;
-  onEnd: () => void;
+  setSelectedCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
   roomId: string;
-  onRoomIdChange: (id: string) => void;
+  setRoomId: React.Dispatch<React.SetStateAction<string>>;
   roomIdConfirmed: boolean;
-  onRoomIdConfirm: () => void;
-  isLive?: boolean; // 방송 감지 상태 (BroadcastTab에서 전달)
+  setRoomIdConfirmed: React.Dispatch<React.SetStateAction<boolean>>;
+  sessionStatus: SessionStatus;
+  setSessionStatus: React.Dispatch<React.SetStateAction<SessionStatus>>;
+  startBroadcast: () => void;
+  endBroadcast: () => void;
+  registerRoomId: () => void;
+  autoResponse: boolean;
+  setAutoResponse: React.Dispatch<React.SetStateAction<boolean>>;
+  sessionId: string | null;
+  isLive?: boolean;
   error?: string | null;
 }
 
 const SessionManager: React.FC<SessionManagerProps> = ({
   characters,
   selectedCharacter,
-  onCharacterSelect,
-  sessionStatus,
-  onStart,
-  onEnd,
+  setSelectedCharacter,
   roomId,
-  onRoomIdChange,
+  setRoomId,
   roomIdConfirmed,
-  onRoomIdConfirm,
+  setRoomIdConfirmed,
+  sessionStatus,
+  setSessionStatus,
+  startBroadcast,
+  endBroadcast,
+  registerRoomId,
+  autoResponse,
+  setAutoResponse,
+  sessionId,
   isLive,
   error,
 }) => {
@@ -41,7 +51,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({
             const char = characters.find(c => c.id === e.target.value);
             if (char) {
               console.log('[SessionManager] 캐릭터 선택:', char.id, char.name);
-              onCharacterSelect(char);
+              setSelectedCharacter(char);
             }
           }}
           disabled={sessionStatus === 'start'}
@@ -58,11 +68,11 @@ const SessionManager: React.FC<SessionManagerProps> = ({
           className="w-full border rounded px-2 py-1"
           type="text"
           value={roomId}
-          onChange={e => onRoomIdChange(e.target.value)}
+          onChange={e => setRoomId(e.target.value)}
           disabled={roomIdConfirmed || sessionStatus === 'start'}
         />
         {!roomIdConfirmed && (
-          <button className="mt-1 px-3 py-1 bg-blue-500 text-white rounded" onClick={onRoomIdConfirm} disabled={!roomId || sessionStatus === 'start'}>
+          <button className="mt-1 px-3 py-1 bg-blue-500 text-white rounded" onClick={registerRoomId} disabled={!roomId || sessionStatus === 'start'}>
             등록
           </button>
         )}
@@ -70,7 +80,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({
       <div className="flex gap-2 mt-2">
         <button
           className="flex-1 bg-green-500 text-white px-4 py-2 rounded font-bold"
-          onClick={onStart}
+          onClick={startBroadcast}
           disabled={sessionStatus === 'start' || !selectedCharacter || !roomIdConfirmed || !isLive}
         >
           방송 시작
@@ -78,7 +88,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({
         {sessionStatus === 'start' && (
           <button
             className="flex-1 bg-red-500 text-white px-4 py-2 rounded font-bold"
-            onClick={onEnd}
+            onClick={endBroadcast}
           >
             방송 종료
           </button>

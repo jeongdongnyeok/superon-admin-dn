@@ -22,7 +22,7 @@ function DashboardPage() {
   }, [router, tab])
 
   return (
-    <div className="p-8">
+    <div className={tab === 'broadcast' ? 'w-full h-full min-w-0 min-h-0 flex flex-col' : 'p-8'}>
       <h1 className="text-xl font-bold mb-4">🧩 Admin Dashboard</h1>
 
       <nav className="flex gap-4 border-b pb-2 mb-4 overflow-x-auto">
@@ -58,7 +58,7 @@ function DashboardPage() {
         </Link>
       </nav>
 
-      <main className={tab === 'broadcast' ? 'flex flex-row w-full h-[calc(100vh-180px)]' : ''}>
+      <main>
         {tab === 'character' && <CharacterTab />}
         {tab === 'user' && <UserTab />}
         {tab === 'playground' && <PlaygroundTab />}

@@ -219,19 +219,24 @@ export default function CharactersTab() {
                 console.log('[CharacterTab] Rendering image for', char.id, 'src:', src);
                 if (src === '/default.png') {
                   return (
-                    <div className="w-full h-48 bg-gray-200 flex items-center justify-center mb-2 rounded">
-                      <span className="text-gray-400">이미지 없음</span>
+                    <div className="flex justify-center mb-2">
+                      <div style={{ width: '150px', height: '200px' }} className="bg-gray-200 flex items-center justify-center rounded border">
+                        <span className="text-gray-400">이미지 없음</span>
+                      </div>
                     </div>
                   );
                 }
                 return (
-                  <Image
-                    src={src}
-                    alt={char.name}
-                    width={400}
-                    height={192}
-                    className="w-full h-48 object-cover mb-2 rounded"
-                  />
+                  <div className="flex justify-center mb-2">
+                    <Image
+                      src={src}
+                      alt={char.name}
+                      width={150}
+                      height={200}
+                      style={{ width: '150px', height: '200px', objectFit: 'cover' }}
+                      className="rounded border bg-white"
+                    />
+                  </div>
                 );
               })()}
 

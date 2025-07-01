@@ -7,6 +7,7 @@ interface VideoPlayerProps {
   setMotionByTag: (tag: string) => void;
   isGiftMotion: boolean;
   playNextGift: () => void;
+  motionTag: 'neutral' | 'talking';
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({
@@ -15,10 +16,65 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   setMotionByTag,
   isGiftMotion,
   playNextGift,
+  motionTag,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const safeMotionFiles = Array.isArray(motionFiles) ? motionFiles : [];
   const playing = safeMotionFiles.find(f => f.url === selectedMotion);
+
+  // 전환 효과용 상태
+  const [showCanvas, setShowCanvas] = React.useState(false);
+  const [pendingSrc, setPendingSrc] = React.useState<string | null>(null);
+
+  // 영상 src 변경 감지 → 캔버스에 마지막 프레임 그리기
+  React.useEffect(() => {
+    if (!videoRef.current || !canvasRef.current) return;
+    // src가 변경될 때만 동작
+    if (pendingSrc && pendingSrc !== selectedMotion) {
+      // 이미 전환 중이면 무시
+      return;
+    }
+    // src가 바뀔 때: 현재 프레임을 캔버스에 그림
+    const v = videoRef.current;
+    const c = canvasRef.current;
+    c.width = v.videoWidth || v.clientWidth;
+    c.height = v.videoHeight || v.clientHeight;
+    const ctx = c.getContext('2d');
+    if (ctx && v.videoWidth > 0 && v.videoHeight > 0) {
+      ctx.drawImage(v, 0, 0, c.width, c.height);
+      setShowCanvas(true);
+      setPendingSrc(selectedMotion);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMotion]);
+
+  // 새 영상이 준비되면 캔버스 숨김
+  const handleVideoCanPlay = () => {
+    setShowCanvas(false);
+    setPendingSrc(null);
+  }
+
+  // motionTag가 변경될 때 해당 태그의 영상을 랜덤 반복 재생
+  React.useEffect(() => {
+    if (!motionTag) return;
+    // motionTag에 해당하는 영상 중 랜덤으로 선택
+    const candidates = safeMotionFiles.filter(f => f.tag === motionTag);
+    if (candidates.length > 0) {
+      // 현재 재생 중인 영상과 같은 url이면 setState 하지 않음
+      const currentIdx = candidates.findIndex(f => f.url === selectedMotion);
+      let nextIdx = Math.floor(Math.random() * candidates.length);
+      // 단일 파일이거나, 랜덤 결과가 현재와 같으면 그대로 둠
+      if (candidates.length === 1 || currentIdx === nextIdx) {
+        if (candidates[currentIdx]?.url !== selectedMotion) {
+          setMotionByTag(candidates[nextIdx].tag);
+        }
+      } else {
+        setMotionByTag(candidates[nextIdx].tag);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [motionTag, safeMotionFiles]);
 
   // 영상 src 보정 함수
   const getVideoSrc = (url: string) => {
@@ -28,7 +84,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   };
 
   return (
-    <div className="video-player flex flex-col items-center p-4 h-full w-full">
+    <div className="video-player flex flex-col h-full w-full min-w-0 min-h-0 overflow-hidden">
       {/* 영상이 없거나 재생할 파일이 없으면 안내 메시지 출력 */}
       {(!Array.isArray(motionFiles) || motionFiles.length === 0 || !playing) && (
         <div className="mb-4 w-full text-center text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">
@@ -42,24 +98,69 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           {playing.name} <span className="text-gray-300">[{playing.tag}]</span>
         </div>
       )}
-      <video
-        ref={videoRef}
-        style={{ width: 375, height: 812 }}
-        className="rounded border mx-auto"
-        src={getVideoSrc(selectedMotion)}
-        autoPlay
-        loop={playing?.tag === 'neutral'}
-        controls
-        onEnded={() => {
-          if (isGiftMotion) {
-            playNextGift();
-          } else if (playing && playing.tag !== 'neutral') {
-            setMotionByTag('neutral');
-          }
-        }}
-      />
+      {/* 비디오/캔버스 부모: 상대 위치 */}
+      <div style={{ position: 'relative', width: '40%', height: '40%' }}>
+        {/* 캔버스: showCanvas가 true일 때만 보이게 */}
+        <canvas
+          ref={canvasRef}
+          style={{
+            display: showCanvas ? 'block' : 'none',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            zIndex: 2,
+            background: 'transparent',
+            objectFit: 'contain',
+            border: showCanvas ? '2px solid red' : undefined // 디버깅용
+          }}
+        />
+        {/* 비디오: 항상 렌더링, showCanvas가 true면 뒤에 숨음 */}
+        <video
+          ref={videoRef}
+          className="rounded border w-full h-full max-w-full object-contain"
+          src={getVideoSrc(selectedMotion)}
+          autoPlay
+          loop={true}
+          controls
+          style={{
+            position: 'relative',
+            zIndex: 1,
+            visibility: showCanvas ? 'hidden' : 'visible',
+            background: 'black',
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+          }}
+          onCanPlay={handleVideoCanPlay}
+          onEnded={() => {
+            if (isGiftMotion) {
+              playNextGift();
+            } else if (motionTag === 'talking') {
+              // talking 모드: talking 태그 영상 랜덤 반복
+              const talkingFiles = safeMotionFiles.filter(f => f.tag === 'talking');
+              if (talkingFiles.length > 0) {
+                setMotionByTag('talking');
+              }
+            } else if (motionTag === 'neutral') {
+              // neutral 모드: neutral 태그 영상 랜덤 반복
+              const neutralFiles = safeMotionFiles.filter(f => f.tag === 'neutral');
+              if (neutralFiles.length > 0) {
+                setMotionByTag('neutral');
+              }
+            } else {
+              // 기타(수동 선택 등): 영상 끝나면 neutral 기본 영상으로 복귀
+              const neutralFiles = safeMotionFiles.filter(f => f.tag === 'neutral');
+              if (neutralFiles.length > 0) {
+                setMotionByTag('neutral');
+              }
+            }
+          }}
+        />
+      </div>
       {/* 하단 모션 파일 리스트 */}
-      <div className="w-full mt-6 px-8 py-3 bg-gray-50 border-t flex flex-row flex-wrap gap-2 items-center justify-start">
+      <div className="w-full flex-1 min-h-0 mt-6 px-4 py-3 bg-gray-50 border-t flex flex-row flex-wrap gap-2 items-center justify-start overflow-y-auto overflow-x-auto min-w-0">
         {motionFiles.length === 0 ? (
           <span className="text-gray-400 text-xs">모션 파일이 없습니다.</span>
         ) : (
@@ -75,18 +176,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           ))
         )}
       </div>
-      <div className="w-full mt-3 space-y-1">
-        {motionFiles.map(file => (
-          <div
-            key={file.path}
-            className={`p-2 rounded cursor-pointer flex items-center gap-2 ${selectedMotion === file.url ? 'bg-blue-50 border-2 border-blue-300' : 'border border-gray-200 hover:bg-gray-50'}`}
-            onClick={() => setMotionByTag(file.tag)}
-          >
-            <span className="font-mono text-xs truncate">{file.path}</span>
-            <span className="text-xs text-gray-500">[{file.tag}]</span>
-          </div>
-        ))}
-      </div>
+
     </div>
   );
 };

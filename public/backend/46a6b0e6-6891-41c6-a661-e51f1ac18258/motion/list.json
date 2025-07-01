@@ -1,0 +1,26 @@
+{
+  "files": [
+    {"name": "gift_1_fingerheart.mp4", "path": "gift_1_fingerheart.mp4", "url": "/backend/46a6b0e6-6891-41c6-a661-e51f1ac18258/motion/gift_1_fingerheart.mp4", "tag": "gift_level_1"},
+    {"name": "gift_2_heartfalling.mp4", "path": "gift_2_heartfalling.mp4", "url": "/backend/46a6b0e6-6891-41c6-a661-e51f1ac18258/motion/gift_2_heartfalling.mp4", "tag": "gift_level_2"},
+    {"name": "gift_3_dance.mp4", "path": "gift_3_dance.mp4", "url": "/backend/46a6b0e6-6891-41c6-a661-e51f1ac18258/motion/gift_3_dance.mp4", "tag": "gift_level_3"},
+    {"name": "gift_4_partytime.mp4", "path": "gift_4_partytime.mp4", "url": "/backend/46a6b0e6-6891-41c6-a661-e51f1ac18258/motion/gift_4_partytime.mp4", "tag": "gift_level_4"},
+    {"name": "gift_5_그랜절.mp4", "path": "gift_5_그랜절.mp4", "url": "/backend/46a6b0e6-6891-41c6-a661-e51f1ac18258/motion/gift_5_그랜절.mp4", "tag": "gift_level_5"},
+    {"name": "gift_6_bigpig_riding.mp4", "path": "gift_6_bigpig_riding.mp4", "url": "/backend/46a6b0e6-6891-41c6-a661-e51f1ac18258/motion/gift_6_bigpig_riding.mp4", "tag": "gift_level_6"},
+    {"name": "gift_rose.mp4", "path": "gift_rose.mp4", "url": "/backend/46a6b0e6-6891-41c6-a661-e51f1ac18258/motion/gift_rose.mp4", "tag": "gift_level_rose"},
+    {"name": "gift_rose_2.mp4", "path": "gift_rose_2.mp4", "url": "/backend/46a6b0e6-6891-41c6-a661-e51f1ac18258/motion/gift_rose_2.mp4", "tag": "gift_level_rose_2"},
+    {"name": "gift_thankyou_heart,follow,share.mp4", "path": "gift_thankyou_heart,follow,share.mp4", "url": "/backend/46a6b0e6-6891-41c6-a661-e51f1ac18258/motion/gift_thankyou_heart,follow,share.mp4", "tag": "gift_level_thankyou"},
+    {"name": "neutral_1.mp4", "path": "neutral_1.mp4", "url": "/backend/46a6b0e6-6891-41c6-a661-e51f1ac18258/motion/neutral_1.mp4", "tag": "neutral"},
+    {"name": "neutral_2.mp4", "path": "neutral_2.mp4", "url": "/backend/46a6b0e6-6891-41c6-a661-e51f1ac18258/motion/neutral_2.mp4", "tag": "neutral"},
+    {"name": "neutral_3.mp4", "path": "neutral_3.mp4", "url": "/backend/46a6b0e6-6891-41c6-a661-e51f1ac18258/motion/neutral_3.mp4", "tag": "neutral"},
+    {"name": "neutral_greeting.mp4", "path": "neutral_greeting.mp4", "url": "/backend/46a6b0e6-6891-41c6-a661-e51f1ac18258/motion/neutral_greeting.mp4", "tag": "neutral"},
+    {"name": "neutral_like.mp4", "path": "neutral_like.mp4", "url": "/backend/46a6b0e6-6891-41c6-a661-e51f1ac18258/motion/neutral_like.mp4", "tag": "neutral"},
+    {"name": "neutral_pig.mp4", "path": "neutral_pig.mp4", "url": "/backend/46a6b0e6-6891-41c6-a661-e51f1ac18258/motion/neutral_pig.mp4", "tag": "neutral"},
+    {"name": "talking_fast.mp4", "path": "talking_fast.mp4", "url": "/backend/46a6b0e6-6891-41c6-a661-e51f1ac18258/motion/talking_fast.mp4", "tag": "talking"},
+    {"name": "talking_normal.mp4", "path": "talking_normal.mp4", "url": "/backend/46a6b0e6-6891-41c6-a661-e51f1ac18258/motion/talking_normal.mp4", "tag": "talking"},
+    {"name": "pre_blue.mp4", "path": "pre_blue.mp4", "url": "/backend/46a6b0e6-6891-41c6-a661-e51f1ac18258/motion/pre_blue.mp4", "tag": ""},
+    {"name": "pre_book.mp4", "path": "pre_book.mp4", "url": "/backend/46a6b0e6-6891-41c6-a661-e51f1ac18258/motion/pre_book.mp4", "tag": ""},
+    {"name": "pre_green.mp4", "path": "pre_green.mp4", "url": "/backend/46a6b0e6-6891-41c6-a661-e51f1ac18258/motion/pre_green.mp4", "tag": ""},
+    {"name": "pre_red.mp4", "path": "pre_red.mp4", "url": "/backend/46a6b0e6-6891-41c6-a661-e51f1ac18258/motion/pre_red.mp4", "tag": ""},
+    {"name": "pre_yellow.mp4", "path": "pre_yellow.mp4", "url": "/backend/46a6b0e6-6891-41c6-a661-e51f1ac18258/motion/pre_yellow.mp4", "tag": ""}
+  ]
+}
