@@ -80,7 +80,7 @@ export default function CharactersTab() {
         })
       );
       setImageUrlsById(urls);
-    } catch (error: any) {
+    } catch (error: unknown) {
       let errorMessage = '캐릭터 목록을 불러오는 중 오류가 발생했습니다.';
       if (axios.isAxiosError(error)) {
         const data = error.response?.data;
@@ -89,8 +89,9 @@ export default function CharactersTab() {
         else if (typeof data?.detail === 'string') errorMessage = data.detail;
       } else if (error instanceof Error) {
         errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
       }
-      
       alert(errorMessage);
       // Clear characters on error to prevent showing stale data
       setCharacters([]);

@@ -23,10 +23,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         instruction: profile.instruction || '',
         examples: profile.examples || []
       });
-    } catch (e: unknown) {
+    } catch (error: unknown) {
       let message = '알 수 없는 오류입니다.';
-      if (e instanceof Error) message = e.message;
-      else if (typeof e === 'string') message = e;
+      if (error instanceof Error) message = error.message;
+      else if (typeof error === 'string') message = error;
       res.status(500).json({ error: '설정 정보를 불러오는데 실패했습니다.', detail: message });
     }
   }
@@ -50,10 +50,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         .eq('id', id);
       if (error) throw error;
       res.status(200).json({ message: '설정이 저장되었습니다.' });
-    } catch (e: unknown) {
+    } catch (error: unknown) {
       let message = '알 수 없는 오류입니다.';
-      if (e instanceof Error) message = e.message;
-      else if (typeof e === 'string') message = e;
+      if (error instanceof Error) message = error.message;
+      else if (typeof error === 'string') message = error;
       res.status(500).json({ error: '설정 저장에 실패했습니다.', detail: message });
     }
   } else {

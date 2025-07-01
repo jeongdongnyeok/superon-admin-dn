@@ -61,7 +61,7 @@ const CharacterSettings = () => {
       setTimeout(() => {
         window.location.href = '/dashboard?tab=character';
       }, 700);
-    } catch (e: any) {
+    } catch (e: unknown) {
       let errorMessage = '설정 저장에 실패했습니다.';
       if (axios.isAxiosError(e)) {
         const data = e.response?.data;
@@ -70,13 +70,14 @@ const CharacterSettings = () => {
         else if (typeof data?.detail === 'string') errorMessage = data.detail;
       } else if (e instanceof Error) {
         errorMessage = e.message;
+      } else if (typeof e === 'string') {
+        errorMessage = e;
       }
       setError(errorMessage);
     } finally {
       setSaving(false);
     }
   };
-
 
   return (
     <div className="max-w-2xl mx-auto mt-8 p-6 bg-white rounded shadow">

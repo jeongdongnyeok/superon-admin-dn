@@ -5,7 +5,7 @@ interface ArchiveEvent {
   _id?: string;
   timestamp?: number;
   event_type?: string;
-  data?: any;
+  data?: unknown;
 }
 
 interface ChatLogsProps {

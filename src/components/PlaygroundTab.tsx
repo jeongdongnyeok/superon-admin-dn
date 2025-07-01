@@ -1,5 +1,5 @@
 // src/components/PlaygroundTab.tsx
-import { useEffect, useState, ChangeEvent, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -14,6 +14,7 @@ type Character = {
   perspective: string
   tone: string
   world: string
+  voice_id?: string // 추가: voice_id가 있을 수 있음
 }
 
 const FASTAPI_BASE_URL = process.env.NEXT_PUBLIC_FASTAPI_BASE_URL || 'http://localhost:8000';
@@ -50,8 +51,9 @@ export default function Playground() {
   const [chatHistory, setChatHistory] = useState<{ type: 'user' | 'bot' | 'loading' | 'info'; content: string; emotion?: string }[]>([]);
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null); // 세션 ID 상태 추가
-  const [characterSettings, setCharacterSettings] = useState<{ instruction: string; examples: ExampleQA[] } | null>(null);
-  const [isLoadingSettings, setIsLoadingSettings] = useState(false);
+  type CharacterSettings = { instruction: string; examples: ExampleQA[]; voice_id?: string };
+const [characterSettings, setCharacterSettings] = useState<CharacterSettings | null>(null);
+  
   const [isPlayingTTS, setIsPlayingTTS] = useState(false);
   const [ttsError, setTTSError] = useState<string | null>(null);
   // TTS provider selection
@@ -96,9 +98,12 @@ export default function Playground() {
         console.error('[TTS] 오디오 재생 실패:', event, audio);
       };
       audio.play();
-    } catch (e: any) {
+    } catch (e: unknown) {
+      let errorMsg = 'TTS 변환/재생 오류';
+      if (e instanceof Error) errorMsg = e.message;
+      else if (typeof e === 'string') errorMsg = e;
+      setTTSError(errorMsg);
       setIsPlayingTTS(false);
-      setTTSError(e?.message || 'TTS 변환/재생 오류');
     }
   }
 
@@ -160,8 +165,6 @@ export default function Playground() {
       setSelectedCharacterImageUrl(imgUrl);
       setIsSessionActive(false);
       setChatHistory([{ type: 'info', content: `'${char.name}'님과 대화를 시작하려면 "대화 시작" 버튼을 눌러주세요.` }]);
-      setIsLoadingSettings(true);
-      setCharacterSettings(null);
       try {
         const res = await fetch(`${FASTAPI_BASE_URL}/characters/${char.id}/profile`);
         if (!res.ok) throw new Error('캐릭터 프로필을 불러오지 못했습니다.');
@@ -169,13 +172,12 @@ export default function Playground() {
         setCharacterSettings({
           instruction: data.instruction || '',
           examples: Array.isArray(data.examples) ? data.examples : [],
+          voice_id: data.voice_id // 있을 경우만
         });
         setChatHistory((prev) => [...prev, { type: 'info', content: '캐릭터 프로필(instruction/예시) 불러오기 성공.' }]);
-      } catch (error) {
+      } catch {
         setCharacterSettings(null);
         setChatHistory((prev) => [...prev, { type: 'info', content: '캐릭터 프로필(instruction/예시) 불러오기 실패.' }]);
-      } finally {
-        setIsLoadingSettings(false);
       }
     }
 
@@ -211,7 +213,7 @@ export default function Playground() {
       setCharacterSettings({ instruction: editInstruction, examples: editExamples });
       setIsEditingProfile(false);
       setChatHistory((prev) => [...prev, { type: 'info', content: '프로필 저장 성공!' }]);
-    } catch (error) {
+    } catch {
       setChatHistory((prev) => [...prev, { type: 'info', content: '프로필 저장 실패.' }]);
     } finally {
       setIsSavingProfile(false);
@@ -235,10 +237,9 @@ export default function Playground() {
       setChatHistory([{ type: 'bot', content: `'${selectedCharacter.name}'님과의 대화가 시작되었습니다. 무엇이 궁금하세요?` }]);
       setIsSessionActive(true);
       setSessionId(null); // Playground에서는 세션 없음
-    } catch (error: unknown) {
-      console.error('Error starting session:', error);
-      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
-      setChatHistory([{ type: 'bot', content: `캐릭터 세션 시작 실패: ${errorMessage}` }]);
+    } catch {
+      console.error('Error starting session:');
+      setChatHistory([{ type: 'bot', content: '캐릭터 세션 시작 실패.' }]);
       setIsSessionActive(false);
       setSessionId(null);
     }
@@ -343,10 +344,10 @@ export default function Playground() {
       if (responseData.response) {
         // 캐릭터별 voice_id를 profile에서 추출하거나 기본값 사용
         let voice_id = undefined;
-        if (characterSettings && (characterSettings as any).voice_id) {
-          voice_id = (characterSettings as any).voice_id;
-        } else if (selectedCharacter && (selectedCharacter as any).voice_id) {
-          voice_id = (selectedCharacter as any).voice_id;
+        if (characterSettings && typeof characterSettings.voice_id === 'string') {
+          voice_id = characterSettings.voice_id;
+        } else if (selectedCharacter && typeof selectedCharacter.voice_id === 'string') {
+          voice_id = selectedCharacter.voice_id;
         }
         // '[감정 :'로 시작하는 감정 태그 부분은 TTS에서 제외
         let ttsText = responseData.response;
