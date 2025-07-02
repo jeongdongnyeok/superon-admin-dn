@@ -30,7 +30,6 @@ const SessionManager: React.FC<SessionManagerProps> = ({
   startBroadcast,
   endBroadcast,
   registerRoomId,
-  sessionId,
   isLive,
   error,
 }) => {
