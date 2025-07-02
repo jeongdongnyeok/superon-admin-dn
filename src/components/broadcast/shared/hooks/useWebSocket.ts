@@ -45,5 +45,6 @@ export const useWebSocket = (roomId: string) => {
     wsStatus,
     messages,
     sendMessage,
+    setMessages, // 외부에서 직접 업데이트 가능하도록 추가
   };
 };

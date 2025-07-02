@@ -14,8 +14,6 @@ interface SessionManagerProps {
   startBroadcast: () => void;
   endBroadcast: () => void;
   registerRoomId: () => void;
-  autoResponse: boolean;
-  setAutoResponse: React.Dispatch<React.SetStateAction<boolean>>;
   sessionId: string | null;
   isLive?: boolean;
   error?: string | null;
@@ -32,6 +30,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({
   startBroadcast,
   endBroadcast,
   registerRoomId,
+  sessionId,
   isLive,
   error,
 }) => {

@@ -1,51 +1,145 @@
 import React, { useState, useCallback } from 'react';
-
-
+import { useWebSocket } from './shared/hooks/useWebSocket';
+import SessionManager from './SessionManager';
+import VideoPlayer from './VideoPlayer';
 import ChatLogs from './ChatLogs';
+import TTSInput from './TTSInput';
+
+// 일반 채팅 입력창
+const ChatInput: React.FC<{ onSend: (text: string) => void, disabled?: boolean }> = ({ onSend, disabled }) => {
+  const [input, setInput] = useState('');
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value);
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && input.trim() && !disabled) {
+      onSend(input.trim());
+      setInput('');
+    }
+  };
+  const handleSend = () => {
+    if (input.trim() && !disabled) {
+      onSend(input.trim());
+      setInput('');
+    }
+  };
+  return (
+    <div className="flex gap-2 w-full mt-2">
+      <input
+        type="text"
+        className="border px-2 py-1 rounded flex-1"
+        placeholder={disabled ? '채팅 불가' : '채팅 입력'}
+        value={input}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        disabled={disabled}
+        maxLength={200}
+      />
+      <button
+        className="bg-gray-600 text-white px-4 py-1 rounded disabled:bg-gray-400"
+        onClick={handleSend}
+        disabled={disabled || !input.trim()}
+      >전송</button>
+    </div>
+  );
+};
 import { useSession } from './shared/hooks/useSession';
-
+import { useCharacters } from './shared/hooks/useCharacters';
+import { useMotionFiles } from './shared/hooks/useMotionFiles';
 import { ChatMessage } from './shared/types';
-
 import api from '../../api';
 
-
-
 const BroadcastTab: React.FC = () => {
-  // All hooks and state at the top
+  // 세션, 캐릭터, 모션 등 상태 관리
+  const session = useSession();
+  const { characters, isLoading: charactersLoading, error: charactersError } = useCharacters();
+  const {
+    motionFiles,
+    selectedMotion,
+    setMotionByTag,
+    isGiftMotion,
+    playNextGift,
+  } = useMotionFiles(session.selectedCharacter?.id || null);
 
-  const { sessionStatus, roomId, sessionId } = useSession();
-
-
-
-
-
+  // TTS 입력 로그 및 채팅 로그 상태
   const [ttsInputLogs] = useState<{ timestamp: number, text: string }[]>([]);
   const [archivedEvents, setArchivedEvents] = useState<ChatMessage[]>([]);
   const [archivedLoading, setArchivedLoading] = useState(false);
-  const [archivedError, setArchivedError] = useState<string | null>(null); // Only declared once
+  const [archivedError, setArchivedError] = useState<string | null>(null);
 
-  // TTS 입력/재생 상태
+  // 실시간 채팅(WebSocket)
+  const { messages, sendMessage, setMessages } = useWebSocket(session.roomId);
 
+  // TTS 입력 핸들러 (샘플)
+  const [ttsLoading, setTtsLoading] = useState(false);
+  const [ttsPlaying, setTtsPlaying] = useState(false);
+  const FASTAPI_BASE_URL = process.env.NEXT_PUBLIC_FASTAPI_BASE_URL || 'http://localhost:8000';
 
+  const handleTtsSend = async (text: string) => {
+    setTtsLoading(true);
+    try {
+      // PlaygroundTab 구조와 동일하게 /tts/stream 호출, Blob 재생
+      // (voice_id, provider 등은 필요시 확장)
+      const res = await fetch(`${FASTAPI_BASE_URL}/tts/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) {
+        let errMsg = 'TTS 변환 실패';
+        try {
+          const err = await res.json();
+          if (err.detail?.message) errMsg = err.detail.message;
+          else if (err.detail) errMsg = err.detail;
+        } catch {}
+        throw new Error(errMsg);
+      }
+      const audioBlob = await res.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
 
+      setMotionByTag('talking');
+      setTtsLoading(false);
+      setTtsPlaying(true);
 
+      // 입력 텍스트를 채팅 메시지로도 전송 (타임스탬프 포함)
+      const msgObj = {
+        type: 'chat' as const,
+        content: text,
+        timestamp: Date.now(),
+        user_nickname: '나',
+      };
+      sendMessage(JSON.stringify(msgObj));
+      setMessages(prev => [...prev, msgObj]);
 
+      const audio = new window.Audio(audioUrl);
+      audio.onended = () => {
+        setTtsPlaying(false);
+        setMotionByTag('neutral');
+      };
+      audio.onerror = (event) => {
+        setTtsPlaying(false);
+        setMotionByTag('neutral');
+        // 오류 로그 출력
+        console.error('[TTS] 오디오 재생 실패:', event, audio);
+      };
+      audio.play();
+    } catch (e) {
+      setTtsLoading(false);
+      setTtsPlaying(false);
+      setMotionByTag('neutral');
+      // 오류 처리
+      console.error('[TTS] 변환/재생 오류:', e);
+    }
+  };
 
-
-
-  // Archived event logs state
-
-
-  // Fetch archived events from backend
+  // Archived event logs fetch
   const fetchArchivedEvents = useCallback(async () => {
-    if (!roomId) {
+    if (!session.roomId) {
       setArchivedError('Room ID가 없습니다.');
       return;
     }
     setArchivedLoading(true);
     setArchivedError(null);
     try {
-      const params: Record<string, string> = { room_id: roomId };
+      const params: Record<string, string> = { room_id: session.roomId };
       const res = await api.get('/broadcast/events', { params });
       setArchivedEvents(res.data.events || []);
     } catch (error) {
@@ -58,37 +152,72 @@ const BroadcastTab: React.FC = () => {
     } finally {
       setArchivedLoading(false);
     }
-  }, [roomId]);
-
-
-
+  }, [session.roomId]);
 
   return (
-    <div>
-      {/* 우측: 채팅 로그 패널 */}
-      <div className="chat-log-panel w-1/2 min-w-0 h-full flex flex-col">
-        <h3 className="font-bold text-lg mb-2">Chat Log Panel</h3>
-        <div className="chat-messages flex-1 overflow-y-auto bg-white rounded border p-2 mb-2 min-h-[120px]">
+    <div className="flex flex-row w-full h-full min-h-screen bg-gray-50">
+      {/* 좌측: 세션/캐릭터 관리 */}
+      <div className="w-80 min-w-[320px] bg-white border-r flex flex-col">
+        <SessionManager
+          characters={characters}
+          selectedCharacter={session.selectedCharacter}
+          setSelectedCharacter={session.setSelectedCharacter}
+          roomId={session.roomId}
+          setRoomId={session.setRoomId}
+          roomIdConfirmed={session.roomIdConfirmed}
+          setRoomIdConfirmed={session.setRoomIdConfirmed}
+          sessionStatus={session.sessionStatus}
+          setSessionStatus={session.setSessionStatus}
+          // 방송 시작: SessionManager는 () => void를 요구하지만 session.startBroadcast는 (character: Character) => Promise<void>임
+          startBroadcast={() => {
+            if (session.selectedCharacter) {
+              session.startBroadcast(session.selectedCharacter);
+            }
+          }}
+          endBroadcast={session.endBroadcast}
+          registerRoomId={() => session.registerRoomId(session.roomId)}
+          sessionId={session.sessionId}
+          isLive={false}
+          error={session.error || charactersError}
+        />
+      </div>
+
+      {/* 중앙: 비디오 플레이어 및 모션 파일 목록 */}
+      <div className="flex flex-col flex-1 items-center justify-start p-6">
+        <div className="w-full flex flex-col items-center">
+          <VideoPlayer
+            motionFiles={motionFiles}
+            selectedMotion={selectedMotion}
+            setMotionByTag={setMotionByTag}
+            isGiftMotion={isGiftMotion}
+            playNextGift={playNextGift}
+            motionTag={"neutral"}
+            characterImage={session.selectedCharacter?.image_url || ''}
+          />
+        </div>
+        {/* 모션 파일 목록 등 추가 UI가 필요하다면 여기에 */}
+      </div>
+
+      {/* 우측: 채팅 로그 및 TTS 입력 */}
+      <div className="w-[420px] min-w-[320px] flex flex-col h-full bg-white border-l">
+        <div className="flex-1 overflow-y-auto p-4">
+          <h3 className="font-bold text-lg mb-2">Chat Log Panel</h3>
           <ChatLogs
-            messages={[]}
-            sessionStatus={sessionStatus}
+            messages={messages}
+            sessionStatus={session.sessionStatus}
             archivedEvents={archivedEvents}
             archivedLoading={archivedLoading}
             archivedError={archivedError}
-            sessionId={sessionId ?? undefined}
+            sessionId={session.sessionId ?? undefined}
             fetchArchivedEvents={fetchArchivedEvents}
           />
         </div>
-        <div className="bg-gray-50 rounded border p-2 text-sm mb-2" style={{ minHeight: 60 }}>
-          {ttsInputLogs.length === 0 ? (
-            <div className="text-gray-400 text-center">TTS 입력 로그가 없습니다.</div>
-          ) : (
-            ttsInputLogs.map((log, idx) => (
-              <div key={idx} className="mb-1 whitespace-pre-line">
-                {'{'}{new Date(log.timestamp).toLocaleTimeString()} {'}'}\n{log.text}
-              </div>
-            ))
-          )}
+        <div className="p-4 border-t bg-gray-50">
+          <TTSInput
+            onSend={handleTtsSend}
+            loading={ttsLoading}
+            playing={ttsPlaying}
+          />
         </div>
       </div>
     </div>

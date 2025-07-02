@@ -48,7 +48,7 @@ const ChatLogs: React.FC<ChatLogsProps> = ({
             <li key={i} className="text-gray-200" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
               {msg.type === 'chat' && (
                 <span>
-                  <span className="text-green-400">{msg.user_nickname}:</span> {msg.content}
+                  <span className="text-green-400">[{msg.timestamp ? new Date(msg.timestamp).toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : new Date().toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}]</span> {msg.content}
                 </span>
               )}
               {msg.type === 'gift' && (
