@@ -9,8 +9,8 @@ import traceback
 
 router = APIRouter()
 
-# 메모리 내에 연결된 websocket 목록
-websocket_clients = set()
+# 메모리 내에 연결된 websocket 목록 (room_id별로 관리)
+websocket_clients = {}  # {room_id: set([WebSocket, ...])}
 
 # --- TikTokLive 세션 관리용 ---
 running_clients = {}
@@ -87,12 +87,13 @@ def run_tiktok_listener(unique_id: str, max_retries: int = 2, retry_delay: int =
             client = TikTokLiveClient(unique_id=unique_id)
             active_clients[unique_id] = client
 
-            # 상태 전송 함수
+            # 상태 전송 함수 (room_id별 클라이언트에만 전송)
             async def send_status_to_clients(status, detail=None):
                 msg = {"type": "status", "status": status}
                 if detail:
                     msg["detail"] = detail
-                for ws in list(websocket_clients):
+                # 해당 room_id와 _all에 모두 전송
+                for ws in list(websocket_clients.get(unique_id, set())) + list(websocket_clients.get("_all", set())):
                     try:
                         asyncio.create_task(ws.send_json(msg))
                     except Exception:
@@ -110,7 +111,7 @@ def run_tiktok_listener(unique_id: str, max_retries: int = 2, retry_delay: int =
             async def on_comment(event: CommentEvent):
                 chat = {"user": event.user.nickname, "comment": event.comment}
                 print(f"[BACKEND] 채팅 수신: {chat}")
-                for ws in list(websocket_clients):
+                for ws in list(websocket_clients.get(unique_id, set())) + list(websocket_clients.get("_all", set())):
                     try:
                         asyncio.create_task(ws.send_json(chat))
                     except Exception:
@@ -151,7 +152,7 @@ def run_tiktok_listener(unique_id: str, max_retries: int = 2, retry_delay: int =
                     "user_nickname": user_nickname,
                     "motion_tag": motion_tag
                 }
-                for ws in list(websocket_clients):
+                for ws in list(websocket_clients.get(unique_id, set())) + list(websocket_clients.get("_all", set())):
                     try:
                         asyncio.create_task(ws.send_json(gift_msg))
                     except Exception:
@@ -254,14 +255,41 @@ if __name__ == "__main__":
             del active_clients[unique_id]
     print("[EXIT] TikTokLive 채팅 수집 종료.")
 
+# (권장) 동적 room_id 기반 WebSocket 엔드포인트
+@router.websocket("/ws/{room_id}")
+async def tiktok_room_ws_endpoint(websocket: WebSocket, room_id: str):
+    await websocket.accept()
+    if room_id not in websocket_clients:
+        websocket_clients[room_id] = set()
+    websocket_clients[room_id].add(websocket)
+    try:
+        while True:
+            await websocket.receive_text()  # ping/pong 용
+    except WebSocketDisconnect:
+        websocket_clients[room_id].remove(websocket)
+        if not websocket_clients[room_id]:
+            del websocket_clients[room_id]
+    except Exception:
+        websocket_clients[room_id].remove(websocket)
+        if not websocket_clients[room_id]:
+            del websocket_clients[room_id]
+
+# (레거시) 모든 room에 대해 브로드캐스트하는 엔드포인트(가능하면 위의 엔드포인트 사용 권장)
 @router.websocket("/ws/tiktok")
 async def tiktok_ws_endpoint(websocket: WebSocket):
     await websocket.accept()
-    websocket_clients.add(websocket)
+    if "_all" not in websocket_clients:
+        websocket_clients["_all"] = set()
+    websocket_clients["_all"].add(websocket)
     try:
         while True:
-            await websocket.receive_text()  # 클라이언트 ping/pong 용
+            await websocket.receive_text()
     except WebSocketDisconnect:
-        websocket_clients.remove(websocket)
+        websocket_clients["_all"].remove(websocket)
+        if not websocket_clients["_all"]:
+            del websocket_clients["_all"]
     except Exception:
+        websocket_clients["_all"].remove(websocket)
+        if not websocket_clients["_all"]:
+            del websocket_clients["_all"]
         websocket_clients.remove(websocket)

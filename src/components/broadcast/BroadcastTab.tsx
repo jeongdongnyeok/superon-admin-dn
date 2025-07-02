@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useWebSocket } from './shared/hooks/useWebSocket';
 import SessionManager from './SessionManager';
 import VideoPlayer from './VideoPlayer';
@@ -31,7 +31,21 @@ const BroadcastTab: React.FC = () => {
   const [archivedError, setArchivedError] = useState<string | null>(null);
 
   // 실시간 채팅(WebSocket)
-  const { messages, sendMessage, setMessages } = useWebSocket(session.roomId);
+  // roomIdConfirmed가 true일 때만 WebSocket 연결
+  const { messages, sendMessage, setMessages } = useWebSocket(session.roomId, session.roomIdConfirmed);
+
+  // --- Gift 이벤트 발생 시 모션 재생 처리 ---
+  useEffect(() => {
+    if (!messages.length) return;
+    const lastMsg = messages[messages.length - 1];
+    // Gift 이벤트 감지
+    if (lastMsg.type === 'gift' && lastMsg.motion_tag) {
+      // motion_tag 예: 'gift_level_1', 'gift_level_2', ...
+      // useMotionFiles의 giftQueue에 push하고 playNextGift 호출
+      // (giftQueue는 내부적으로 관리되므로, setMotionByTag로 직접 재생)
+      setMotionByTag(lastMsg.motion_tag, 'gift_event');
+    }
+  }, [messages, setMotionByTag]);
 
   // TTS 입력 핸들러 (샘플)
   const [ttsLoading, setTtsLoading] = useState(false);
@@ -119,6 +133,56 @@ const BroadcastTab: React.FC = () => {
     }
   }, [session.roomId]);
 
+  // --- isLive 상태 관리 ---
+  const [isLive, setIsLive] = useState(false);
+  const [liveError, setLiveError] = useState<string | null>(null);
+
+  // roomId 등록 시 1회만 방송 상태 체크
+  const handleRegisterRoomId = async () => {
+    setLiveError(null);
+    if (!session.roomId) return;
+    try {
+      const res = await api.get('/broadcast/status', { params: { room_id: session.roomId } });
+      const live = !!res.data.is_live;
+      setIsLive(live);
+      if (!live) {
+        setLiveError('방송이 감지되지 않습니다. 올바른 Room ID를 입력하세요.');
+        // roomIdConfirmed를 false로 유지 (등록 불가)
+        session.setRoomIdConfirmed(false);
+        return;
+      }
+      // 정상: roomIdConfirmed true로 설정
+      session.setRoomIdConfirmed(true);
+    } catch {
+      setIsLive(false);
+      setLiveError('방송 상태 확인에 실패했습니다.');
+      session.setRoomIdConfirmed(false);
+    }
+  };
+
+  // 방송 시작 버튼 클릭 시 한 번 더 체크
+  const handleStartBroadcast = async () => {
+    setLiveError(null);
+    if (!session.roomId || !session.selectedCharacter) return;
+    try {
+      const res = await api.get('/broadcast/status', { params: { room_id: session.roomId } });
+      const live = !!res.data.is_live;
+      setIsLive(live);
+      if (!live) {
+        setLiveError('방송이 감지되지 않습니다. 올바른 Room ID를 입력하세요.');
+        session.setRoomIdConfirmed(false);
+        return;
+      }
+      // 정상: 방송 시작
+      await session.startBroadcast(session.selectedCharacter);
+    } catch {
+      setIsLive(false);
+      setLiveError('방송 상태 확인에 실패했습니다.');
+      session.setRoomIdConfirmed(false);
+    }
+  };
+
+
   return (
     <div className="flex flex-row w-full h-full min-h-screen bg-gray-50">
       {/* 좌측: 세션/캐릭터 관리 */}
@@ -133,17 +197,13 @@ const BroadcastTab: React.FC = () => {
           setRoomIdConfirmed={session.setRoomIdConfirmed}
           sessionStatus={session.sessionStatus}
           setSessionStatus={session.setSessionStatus}
-          // 방송 시작: SessionManager는 () => void를 요구하지만 session.startBroadcast는 (character: Character) => Promise<void>임
-          startBroadcast={() => {
-            if (session.selectedCharacter) {
-              session.startBroadcast(session.selectedCharacter);
-            }
-          }}
           endBroadcast={session.endBroadcast}
-          registerRoomId={() => session.registerRoomId(session.roomId)}
           sessionId={session.sessionId}
-          isLive={false}
+          isLive={isLive}
           error={session.error}
+          handleRegisterRoomId={handleRegisterRoomId}
+          handleStartBroadcast={handleStartBroadcast}
+          liveError={liveError}
         />
       </div>
 

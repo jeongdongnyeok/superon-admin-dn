@@ -11,12 +11,13 @@ interface SessionManagerProps {
   setRoomIdConfirmed: React.Dispatch<React.SetStateAction<boolean>>;
   sessionStatus: SessionStatus;
   setSessionStatus: React.Dispatch<React.SetStateAction<SessionStatus>>;
-  startBroadcast: () => void;
   endBroadcast: () => void;
-  registerRoomId: () => void;
   sessionId: string | null;
   isLive?: boolean;
   error?: string | null;
+  handleRegisterRoomId: () => void;
+  handleStartBroadcast: () => void;
+  liveError?: string | null;
 }
 
 const SessionManager: React.FC<SessionManagerProps> = ({
@@ -27,11 +28,13 @@ const SessionManager: React.FC<SessionManagerProps> = ({
   setRoomId,
   roomIdConfirmed,
   sessionStatus,
-  startBroadcast,
   endBroadcast,
-  registerRoomId,
+  sessionId,
   isLive,
   error,
+  handleRegisterRoomId,
+  handleStartBroadcast,
+  liveError, 
 }) => {
   return (
     <div className="session-manager flex flex-col gap-2 p-4 border-r border-gray-200 h-full">
@@ -62,10 +65,10 @@ const SessionManager: React.FC<SessionManagerProps> = ({
           type="text"
           value={roomId}
           onChange={e => setRoomId(e.target.value)}
-          disabled={roomIdConfirmed || sessionStatus === 'start'}
+          disabled={(roomIdConfirmed && isLive) || sessionStatus === 'start'}
         />
-        {!roomIdConfirmed && (
-          <button className="mt-1 px-3 py-1 bg-blue-500 text-white rounded" onClick={registerRoomId} disabled={!roomId || sessionStatus === 'start'}>
+        {(!roomIdConfirmed || (roomIdConfirmed && !isLive)) && (
+          <button className="mt-1 px-3 py-1 bg-blue-500 text-white rounded" onClick={handleRegisterRoomId} disabled={!roomId || sessionStatus === 'start'}>
             등록
           </button>
         )}
@@ -73,7 +76,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({
       <div className="flex gap-2 mt-2">
         <button
           className="flex-1 bg-green-500 text-white px-4 py-2 rounded font-bold"
-          onClick={startBroadcast}
+          onClick={handleStartBroadcast}
           disabled={sessionStatus === 'start' || !selectedCharacter || !roomIdConfirmed || !isLive}
         >
           방송 시작
@@ -88,8 +91,8 @@ const SessionManager: React.FC<SessionManagerProps> = ({
         )}
       </div>
       {/* 방송 감지 안내 */}
-      {roomIdConfirmed && !isLive && (
-        <div className="mt-2 text-red-500 text-sm">방송이 감지되지 않아 방송 시작이 불가능합니다.</div>
+      {liveError && (
+        <div className="mt-2 text-red-500 text-sm">{liveError}</div>
       )}
 
       <div className="mt-2 text-sm text-gray-700">
