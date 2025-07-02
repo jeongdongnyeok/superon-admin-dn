@@ -20,6 +20,7 @@ const BroadcastTab: React.FC = () => {
     motionFiles,
     selectedMotion,
     setMotionByTag,
+    setSelectedMotion,
     isGiftMotion,
     playNextGift,
   } = useMotionFiles(session.selectedCharacter?.id || null);
@@ -153,9 +154,10 @@ const BroadcastTab: React.FC = () => {
             motionFiles={motionFiles}
             selectedMotion={selectedMotion}
             setMotionByTag={setMotionByTag}
+            setSelectedMotion={setSelectedMotion}
             isGiftMotion={isGiftMotion}
             playNextGift={playNextGift}
-            motionTag={"neutral"}
+            motionTag={session.sessionStatus === 'start' ? (ttsPlaying ? 'talking' : 'neutral') : 'neutral'}
             characterImage={session.selectedCharacter?.image_url || ''}
           />
         </div>

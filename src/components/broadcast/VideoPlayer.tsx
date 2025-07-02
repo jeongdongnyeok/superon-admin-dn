@@ -16,6 +16,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   motionFiles,
   selectedMotion,
   setMotionByTag,
+  setSelectedMotion,
   isGiftMotion,
   playNextGift,
   motionTag,
@@ -236,7 +237,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             <button
               key={file.url}
               className={`px-3 py-2 rounded flex items-center gap-2 text-xs font-mono border transition-colors duration-100 ${selectedMotion === file.url ? 'bg-blue-50 border-blue-400 text-blue-800 font-bold' : 'border-gray-300 bg-white hover:bg-gray-100'}`}
-              onClick={() => setMotionByTag(file.tag)}
+              onClick={() => setSelectedMotion?.(file.url)}
             >
               <span>{file.name}</span>
               <span className="text-gray-400 ml-2">[{file.tag}]</span>

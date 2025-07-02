@@ -161,10 +161,9 @@ export const useMotionFiles = (characterId: string | null) => {
     motionFiles,
     selectedMotion,
     setSelectedMotion,
-    isGiftMotion,
-    setIsGiftMotion,
     setMotionByTag,
-    giftQueue,
+    isGiftMotion,
     playNextGift,
+    giftQueue,
   };
 };
