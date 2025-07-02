@@ -5,42 +5,7 @@ import VideoPlayer from './VideoPlayer';
 import ChatLogs from './ChatLogs';
 import TTSInput from './TTSInput';
 
-// 일반 채팅 입력창
-const ChatInput: React.FC<{ onSend: (text: string) => void, disabled?: boolean }> = ({ onSend, disabled }) => {
-  const [input, setInput] = useState('');
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value);
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && input.trim() && !disabled) {
-      onSend(input.trim());
-      setInput('');
-    }
-  };
-  const handleSend = () => {
-    if (input.trim() && !disabled) {
-      onSend(input.trim());
-      setInput('');
-    }
-  };
-  return (
-    <div className="flex gap-2 w-full mt-2">
-      <input
-        type="text"
-        className="border px-2 py-1 rounded flex-1"
-        placeholder={disabled ? '채팅 불가' : '채팅 입력'}
-        value={input}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
-        disabled={disabled}
-        maxLength={200}
-      />
-      <button
-        className="bg-gray-600 text-white px-4 py-1 rounded disabled:bg-gray-400"
-        onClick={handleSend}
-        disabled={disabled || !input.trim()}
-      >전송</button>
-    </div>
-  );
-};
+
 import { useSession } from './shared/hooks/useSession';
 import { useCharacters } from './shared/hooks/useCharacters';
 import { useMotionFiles } from './shared/hooks/useMotionFiles';
@@ -50,7 +15,7 @@ import api from '../../api';
 const BroadcastTab: React.FC = () => {
   // 세션, 캐릭터, 모션 등 상태 관리
   const session = useSession();
-  const { characters, isLoading: charactersLoading, error: charactersError } = useCharacters();
+  const { characters } = useCharacters();
   const {
     motionFiles,
     selectedMotion,
@@ -59,8 +24,7 @@ const BroadcastTab: React.FC = () => {
     playNextGift,
   } = useMotionFiles(session.selectedCharacter?.id || null);
 
-  // TTS 입력 로그 및 채팅 로그 상태
-  const [ttsInputLogs] = useState<{ timestamp: number, text: string }[]>([]);
+  // 채팅 로그 상태
   const [archivedEvents, setArchivedEvents] = useState<ChatMessage[]>([]);
   const [archivedLoading, setArchivedLoading] = useState(false);
   const [archivedError, setArchivedError] = useState<string | null>(null);
@@ -178,7 +142,7 @@ const BroadcastTab: React.FC = () => {
           registerRoomId={() => session.registerRoomId(session.roomId)}
           sessionId={session.sessionId}
           isLive={false}
-          error={session.error || charactersError}
+          error={session.error}
         />
       </div>
 
