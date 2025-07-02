@@ -29,9 +29,10 @@ jiter==0.9.0
 joblib==1.4.2
 jsonpatch==1.33
 jsonpointer==3.0.0
-langchain[all]
-PyYaml>=6.0.2
+langchain-core==0.3.56
+langchain-openai==0.3.14
 langsmith==0.3.37
+PyYaml>=6.0.2
 markdown-it-py==3.0.0
 MarkupSafe==2.1.5
 marshmallow==3.26.1
