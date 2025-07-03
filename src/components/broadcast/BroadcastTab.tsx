@@ -226,26 +226,26 @@ const BroadcastTab: React.FC = () => {
 
       {/* 우측: 채팅 로그 및 TTS 입력 */}
       <div className="w-[420px] min-w-[320px] flex flex-col h-full bg-white border-l">
-        <div className="flex-1 overflow-y-auto p-4">
-          <h3 className="font-bold text-lg mb-2">Chat Log Panel</h3>
-          <ChatLogs
-            messages={messages}
-            sessionStatus={session.sessionStatus}
-            archivedEvents={archivedEvents}
-            archivedLoading={archivedLoading}
-            archivedError={archivedError}
-            sessionId={session.sessionId ?? undefined}
-            fetchArchivedEvents={fetchArchivedEvents}
-          />
-        </div>
-        <div className="p-4 border-t bg-gray-50">
-          <TTSInput
-            onSend={handleTtsSend}
-            loading={ttsLoading}
-            playing={ttsPlaying}
-          />
-        </div>
-      </div>
+  <div className="p-4 border-b bg-gray-50">
+    <TTSInput
+      onSend={handleTtsSend}
+      loading={ttsLoading}
+      playing={ttsPlaying}
+    />
+  </div>
+  <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse">
+    <ChatLogs
+      messages={messages}
+      sessionStatus={session.sessionStatus}
+      archivedEvents={archivedEvents}
+      archivedLoading={archivedLoading}
+      archivedError={archivedError}
+      sessionId={session.sessionId ?? undefined}
+      fetchArchivedEvents={fetchArchivedEvents}
+      reverseOrder={true}
+    />
+  </div>
+</div>
     </div>
   );
 };

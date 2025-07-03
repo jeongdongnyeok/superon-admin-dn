@@ -16,6 +16,7 @@ interface ChatLogsProps {
   archivedError?: string | null;
   sessionId?: string;
   fetchArchivedEvents?: () => void;
+  reverseOrder?: boolean;
 }
 
 const ChatLogs: React.FC<ChatLogsProps> = ({
@@ -26,6 +27,7 @@ const ChatLogs: React.FC<ChatLogsProps> = ({
   archivedError = null,
   sessionId = '',
   fetchArchivedEvents,
+  reverseOrder = false,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -44,7 +46,7 @@ const ChatLogs: React.FC<ChatLogsProps> = ({
       >
         <div className="font-bold text-white mb-2">실시간 채팅 콘솔</div>
         <ul className="space-y-1">
-          {messages.map((msg, i) => (
+          {(reverseOrder ? [...messages].reverse() : messages).map((msg, i) => (
             <li key={i} className="text-gray-200" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
               {msg.type === 'chat' && (
                 <span>
