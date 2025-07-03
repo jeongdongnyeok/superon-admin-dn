@@ -12,7 +12,6 @@ interface SessionManagerProps {
   sessionStatus: SessionStatus;
   setSessionStatus: React.Dispatch<React.SetStateAction<SessionStatus>>;
   endBroadcast: () => void;
-  sessionId: string | null;
   isLive?: boolean;
   error?: string | null;
   handleRegisterRoomId: () => void;
@@ -29,7 +28,6 @@ const SessionManager: React.FC<SessionManagerProps> = ({
   roomIdConfirmed,
   sessionStatus,
   endBroadcast,
-  sessionId,
   isLive,
   error,
   handleRegisterRoomId,
