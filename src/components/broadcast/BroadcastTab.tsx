@@ -198,7 +198,7 @@ const BroadcastTab: React.FC = () => {
           sessionStatus={session.sessionStatus}
           setSessionStatus={session.setSessionStatus}
           endBroadcast={session.endBroadcast}
-          sessionId={session.sessionId}
+
           isLive={isLive}
           error={session.error}
           handleRegisterRoomId={handleRegisterRoomId}
